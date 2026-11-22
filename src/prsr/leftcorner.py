@@ -1,9 +1,9 @@
-# This file is part of txtures. The computation follows ModelBlocks
+# This file is part of prsr. The computation follows ModelBlocks
 # (resource-lcparse/scripts/berkgrammar2ckygr.py, berklexicon2ckylex.py,
 # ccu2cc.py, and resource-incrsem/src/ccmodel2synproccptmodel.cpp),
 # Copyright 2009, ModelBlocks developers, reimplemented for txtures in 2026.
 #
-# txtures is free software: you can redistribute it and/or modify it under the
+# prsr is free software: you can redistribute it and/or modify it under the
 # terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or (at your option) any later
 # version. See LICENSE.

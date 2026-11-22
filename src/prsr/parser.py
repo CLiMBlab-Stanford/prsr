@@ -1,14 +1,14 @@
-# This file is part of txtures. The parser follows ModelBlocks' synproc
+# This file is part of prsr. The parser follows ModelBlocks' synproc
 # (resource-incrsem/src/synproc.cpp), Copyright 2009, ModelBlocks developers,
 # reimplemented for txtures in 2026.
 #
-# txtures is free software: you can redistribute it and/or modify it under the
+# prsr is free software: you can redistribute it and/or modify it under the
 # terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or (at your option) any later
 # version. See LICENSE.
 """synproc on the GPU: batched beam search over many sentences at once.
 
-The semantics are those of `txtures.lvpcfg.synproc.reference_parse`. Beam
+The semantics are those of `prsr.synproc.reference_parse`. Beam
 entries of all sentences live in one flat set of tensors, each tagged with
 its sentence, so sentences of different lengths cost nothing once they end.
 Each word is one step:
@@ -35,8 +35,8 @@ from dataclasses import dataclass
 
 import torch
 
-from txtures.lvpcfg import leftcorner as lc
-from txtures.lvpcfg.synproc import MergedLexicon
+from prsr import leftcorner as lc
+from prsr.synproc import MergedLexicon
 
 NEG = -math.inf
 

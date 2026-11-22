@@ -22,9 +22,9 @@ from dataclasses import dataclass, field
 import numpy as np
 import torch
 
-from txtures.lvpcfg.inside import BINARY, LEXICAL, UNARY, encode, expected_counts
-from txtures.lvpcfg.lexicon import PRUNE, RARE, Lexicon, token_signatures, train_tokens
-from txtures.lvpcfg.trees import Tree
+from prsr.inside import BINARY, LEXICAL, UNARY, encode, expected_counts
+from prsr.lexicon import PRUNE, RARE, Lexicon, token_signatures, train_tokens
+from prsr.trees import Tree
 
 
 @dataclass

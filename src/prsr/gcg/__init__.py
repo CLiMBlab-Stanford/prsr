@@ -1,10 +1,10 @@
-# This file is part of txtures. Parts are translated from ModelBlocks
+# This file is part of prsr. Parts are translated from ModelBlocks
 # (resource-linetrees/scripts/editabletrees2linetrees.pl and killUnaries.pl,
 # resource-gcg/scripts/makefailtrees.py, and the gcg15 rule of
 # resource-gcg/Makefile), Copyright 2009, ModelBlocks developers, and were
 # modified for txtures in 2026.
 #
-# txtures is free software: you can redistribute it and/or modify it under the
+# prsr is free software: you can redistribute it and/or modify it under the
 # terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or (at your option) any later
 # version. See LICENSE.
@@ -15,8 +15,8 @@ from Penn Treebank `.mrg` files, and it reproduces that pipeline's output
 exactly:
 
 1. `ptb_lines`: one tree per line (`editabletrees2linetrees.pl`).
-2. `txtures.gcg.fixes.fix`: repairs of treebank errors (`make-trees-fixed.pl`).
-3. `txtures.gcg.rules.annotate`: the gcg15 reannotation (`annotate-gcg15.pl`).
+2. `prsr.gcg.fixes.fix`: repairs of treebank errors (`make-trees-fixed.pl`).
+3. `prsr.gcg.rules.annotate`: the gcg15 reannotation (`annotate-gcg15.pl`).
 4. `kill_unaries`: collapse unary branches, keeping lexical chains, and
    delete empty categories (`killUnaries.pl -l`).
 5. `fail_tree`: replace a tree whose reannotation failed, recognizable by a
@@ -34,8 +34,8 @@ from __future__ import annotations
 
 import re
 
-from txtures.gcg import fixes, rules
-from txtures.gcg.perl import PerlString
+from prsr.gcg import fixes, rules
+from prsr.gcg.perl import PerlString
 
 __all__ = [
     "mark_preterminals",
@@ -51,7 +51,8 @@ __all__ = [
 GCG15_VERSION = 1
 """Increment whenever `reannotate` would give any tree a different result.
 
-It is part of the identity of every `gcg_treebank`. Changes that keep the
+Caches of reannotated trees, such as txtures' `gcg_treebank`, include it in
+their identity. Changes that keep the
 output identical, such as speedups or rewrites checked against all of WSJ,
 leave it alone.
 """

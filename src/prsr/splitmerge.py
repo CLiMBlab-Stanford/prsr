@@ -36,9 +36,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from txtures.lvpcfg.em import Corpus, Grammar, prepare
-from txtures.lvpcfg.inside import node_posteriors
-from txtures.lvpcfg.lexicon import Lexicon
+from prsr.em import Corpus, Grammar, prepare
+from prsr.inside import node_posteriors
+from prsr.lexicon import Lexicon
 
 SplitTree = int | list  # a substate (leaf) or a list of subtrees
 

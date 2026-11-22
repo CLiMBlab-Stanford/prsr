@@ -1,8 +1,8 @@
-# This file is part of txtures. `tree_from_states` follows ModelBlocks
+# This file is part of prsr. `tree_from_states` follows ModelBlocks
 # (resource-incrsem/scripts/tokdecs2linetrees.py), Copyright 2009, ModelBlocks
 # developers, reimplemented for txtures in 2026.
 #
-# txtures is free software: you can redistribute it and/or modify it under the
+# prsr is free software: you can redistribute it and/or modify it under the
 # terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or (at your option) any later
 # version. See LICENSE.
@@ -28,8 +28,8 @@ from __future__ import annotations
 
 import re
 
-from txtures.gcg import remove_operators
-from txtures.lvpcfg.trees import Tree, parse
+from prsr.gcg import remove_operators
+from prsr.trees import Tree, parse
 
 _SPLIT = re.compile(r"_[0-9]+$")
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from txtures.lvpcfg.trees import Tree, annotate, escape, normalize, parse, training_tree
+from prsr.trees import Tree, annotate, escape, normalize, parse, training_tree
 
 DATA = Path(__file__).parent / "data" / "lvpcfg"
 
@@ -51,7 +51,7 @@ def _brute_force(trees, binary, unary, lexical):
 
     import numpy as np
 
-    from txtures.lvpcfg.inside import LEXICAL, UNARY
+    from prsr.inside import LEXICAL, UNARY
 
     S = lexical.shape[1]
     likelihoods = []
@@ -86,7 +86,7 @@ def test_inside_and_counts_match_brute_force():
     import numpy as np
     import torch
 
-    from txtures.lvpcfg.inside import (
+    from prsr.inside import (
         BINARY,
         LEXICAL,
         UNARY,
@@ -126,7 +126,7 @@ def test_inside_and_counts_match_brute_force():
 def test_inside_does_not_underflow_on_long_trees():
     import torch
 
-    from txtures.lvpcfg.inside import BINARY, LEXICAL, encode, log_likelihoods
+    from prsr.inside import BINARY, LEXICAL, encode, log_likelihoods
 
     # a right-branching tree of 400 words, each with probability 1e-3
     nodes = [(LEXICAL, 0, -1, -1)]
@@ -145,7 +145,7 @@ def test_inside_does_not_underflow_on_long_trees():
 
 
 def test_signatures_follow_berkeley_level_5():
-    from txtures.lvpcfg.lexicon import signature
+    from prsr.lexicon import signature
 
     def known(word):
         return word in {"running"}
@@ -162,7 +162,7 @@ def test_signatures_follow_berkeley_level_5():
 def test_rare_words_share_the_unseen_distribution():
     import numpy as np
 
-    from txtures.lvpcfg.lexicon import Lexicon
+    from prsr.lexicon import Lexicon
 
     lexicon = Lexicon({0: 2})
     for word, weights in [("cat", [0.9, 0.1]), ("dog", [0.2, 0.8])]:
@@ -178,7 +178,7 @@ def test_rare_words_share_the_unseen_distribution():
 def test_normalize_divides_by_parent_totals_and_prunes():
     import numpy as np
 
-    from txtures.lvpcfg.em import normalize
+    from prsr.em import normalize
 
     binary = {(0, 1, 2): np.array([[[3.0]], [[1e-40]]])}
     unary = {(0, 3): np.array([[1.0], [2.0]]), (0, 0): np.array([[5.0, 0.0], [0.0, 5.0]])}
@@ -196,9 +196,9 @@ def test_normalize_divides_by_parent_totals_and_prunes():
 def test_split_noise_keeps_parent_totals_and_is_small():
     import numpy as np
 
-    from txtures.lvpcfg.em import Grammar
-    from txtures.lvpcfg.lexicon import Lexicon
-    from txtures.lvpcfg.splitmerge import split
+    from prsr.em import Grammar
+    from prsr.lexicon import Lexicon
+    from prsr.splitmerge import split
 
     grammar = Grammar(
         {0: 1, 1: 1, 2: 1}, {(1, 2, 2): np.array([[[0.6]]])}, {(1, 2): np.array([[0.4]])}
@@ -217,7 +217,7 @@ def test_split_noise_keeps_parent_totals_and_is_small():
 def test_smoother_mixes_within_the_first_split():
     import numpy as np
 
-    from txtures.lvpcfg.splitmerge import smoother_matrix
+    from prsr.splitmerge import smoother_matrix
 
     tree = [0, [[0, [0, 1]], [1, [2, 3]]]]
     d = smoother_matrix(tree, 0.1)
@@ -228,9 +228,9 @@ def test_smoother_mixes_within_the_first_split():
 def test_merge_sums_children_and_averages_parents():
     import numpy as np
 
-    from txtures.lvpcfg.em import Grammar
-    from txtures.lvpcfg.lexicon import Lexicon
-    from txtures.lvpcfg.splitmerge import merge
+    from prsr.em import Grammar
+    from prsr.lexicon import Lexicon
+    from prsr.splitmerge import merge
 
     binary = {(1, 1, 1): np.arange(8, dtype=float).reshape(2, 2, 2)}
     grammar = Grammar({0: 1, 1: 2}, binary, {})
@@ -248,7 +248,7 @@ def test_merge_rules():
     import numpy as np
     import pytest
 
-    from txtures.lvpcfg.splitmerge import merge_pairs
+    from prsr.splitmerge import merge_pairs
 
     # category 1: two useless splits (one rounds to exactly 0, one to 1e-15);
     # category 2: three splits that matter
@@ -262,9 +262,9 @@ def test_merge_rules():
 
 
 def test_training_runs_and_likelihood_improves():
-    from txtures.lvpcfg.em import index_trees
-    from txtures.lvpcfg.trainer import train
-    from txtures.lvpcfg.trees import training_tree
+    from prsr.em import index_trees
+    from prsr.trainer import train
+    from prsr.trees import training_tree
 
     lines = (DATA / "trees.txt").read_text().splitlines()
     trees = [training_tree(line) for line in lines] * 3
@@ -285,43 +285,11 @@ def test_training_runs_and_likelihood_improves():
     assert set(split_trees) == set(labels.values())
 
 
-def test_grammar_resource_builds_saves_and_loads(tmp_path, monkeypatch, capsys):
-    import numpy as np
-    from test_gcg import fake_ptb
-
-    from txtures.cli import main
-    from txtures.lvpcfg.resource import load
-
-    for key in ("inputs", "outputs", "resources", "cache", "definitions"):
-        monkeypatch.setenv(f"TXTURES_{key.upper()}", str(tmp_path / key))
-    monkeypatch.setenv("TXTURES_CORPORA_PTB3", str(fake_ptb(tmp_path / "ptb")))
-    monkeypatch.setenv("TXTURES_EXECUTION_EXECUTOR", "local")
-    monkeypatch.setenv("TXTURES_EXECUTION_DEVICE", "cpu")
-    args = ["resources", "build", "--kind", "lvpcfg_grammar"]
-    args += [
-        "--spec",
-        "treebank={sections: [2]}",
-        "--spec",
-        "cycles=1",
-        "--spec",
-        "updates=[2, 1, 1]",
-    ]
-    assert main(args) == 0
-    assert "built resource lvpcfg_grammar" in capsys.readouterr().out
-    [entry] = list((tmp_path / "resources" / "store" / "lvpcfg_grammar").glob("*/*"))
-    trained = load(entry)
-    assert trained.training["trees"] == 7  # the FAIL tree is dropped
-    assert [p["phase"] for p in trained.training["phases"]] == ["split", "merge", "smooth"]
-    rule = next(iter(trained.grammar.binary.values()))
-    assert np.all(np.isfinite(rule)) and trained.grammar.smoother is not None
-    assert trained.lexicon.total == 46  # the 49 words less the 3 of the FAIL tree
-
-
 def _toy_training(cycles=1, updates=(2, 1, 1)):
-    from txtures.lvpcfg.em import index_trees
-    from txtures.lvpcfg.resource import category_numbers
-    from txtures.lvpcfg.trainer import train
-    from txtures.lvpcfg.trees import training_tree
+    from prsr.em import index_trees
+    from prsr.io import category_numbers
+    from prsr.trainer import train
+    from prsr.trees import training_tree
 
     trees = [training_tree(line) for line in (DATA / "trees.txt").read_text().splitlines()] * 3
     labels = category_numbers(trees)
@@ -333,9 +301,9 @@ def _toy_training(cycles=1, updates=(2, 1, 1)):
 def test_tensor_iteration_matches_the_dictionary_one():
     import numpy as np
 
-    from txtures.lvpcfg import fast
-    from txtures.lvpcfg import splitmerge as sm
-    from txtures.lvpcfg.em import iterate
+    from prsr import fast
+    from prsr import splitmerge as sm
+    from prsr.em import iterate
 
     corpus, grammar, lexicon, split_trees = _toy_training()
     grammar, lexicon, split_trees = sm.split(
@@ -370,8 +338,8 @@ def test_tensor_split_matches_the_dictionary_one_without_noise():
     import numpy as np
     import torch
 
-    from txtures.lvpcfg import fast
-    from txtures.lvpcfg import splitmerge as sm
+    from prsr import fast
+    from prsr import splitmerge as sm
 
     corpus, grammar, lexicon, split_trees = _toy_training()
     g_dict, l_dict, _ = sm.split(grammar, lexicon, split_trees, np.random.default_rng(0), 0.0)
@@ -391,7 +359,7 @@ def test_tensor_split_matches_the_dictionary_one_without_noise():
 def test_tensor_split_noise_keeps_totals():
     import torch
 
-    from txtures.lvpcfg import fast
+    from prsr import fast
 
     corpus, grammar, lexicon, _ = _toy_training()
     state = fast.to_state(corpus, grammar, lexicon)
@@ -409,8 +377,8 @@ def test_tensor_split_noise_keeps_totals():
 def test_tensor_merge_matches_the_dictionary_one():
     import numpy as np
 
-    from txtures.lvpcfg import fast
-    from txtures.lvpcfg import splitmerge as sm
+    from prsr import fast
+    from prsr import splitmerge as sm
 
     corpus, grammar, lexicon, split_trees = _toy_training()
     grammar, lexicon, split_trees = sm.split(
@@ -441,7 +409,7 @@ def test_tensor_merge_matches_the_dictionary_one():
 
 
 def _toy_pcfg():
-    from txtures.lvpcfg.leftcorner import Pcfg
+    from prsr.leftcorner import Pcfg
 
     # phrases S, NP, VP; preterminals d, n, v, x (as GCG's -PRTRM tags are distinct)
     grammar = [
@@ -460,7 +428,7 @@ def _toy_pcfg():
 def test_left_corner_tables_are_distributions():
     import torch
 
-    from txtures.lvpcfg import leftcorner as lc
+    from prsr import leftcorner as lc
 
     pcfg = _toy_pcfg()
     assert pcfg.root == {"S_0": 1.0} and pcfg.terminal["n_0"] == 1.0
@@ -484,7 +452,7 @@ def test_left_corner_tables_are_distributions():
 def test_viterbi_unary_closure_takes_the_best_path_of_at_most_two_steps():
     import numpy as np
 
-    from txtures.lvpcfg.leftcorner import viterbi_unary_closure
+    from prsr.leftcorner import viterbi_unary_closure
 
     unary = {
         (1, 2): np.array([[0.1]]),  # direct A -> B
@@ -501,9 +469,9 @@ def test_viterbi_unary_closure_takes_the_best_path_of_at_most_two_steps():
 
 
 def test_trained_grammar_exports_to_a_compilable_pcfg():
-    from txtures.lvpcfg import leftcorner as lc
-    from txtures.lvpcfg.resource import category_numbers
-    from txtures.lvpcfg.trees import training_tree
+    from prsr import leftcorner as lc
+    from prsr.io import category_numbers
+    from prsr.trees import training_tree
 
     corpus, grammar, lexicon, _ = _toy_training()
     trees = [training_tree(line) for line in (DATA / "trees.txt").read_text().splitlines()] * 3
@@ -516,8 +484,8 @@ def test_trained_grammar_exports_to_a_compilable_pcfg():
 
 
 def test_synproc_model_stores_the_pcfg_and_compiles_on_load(tmp_path):
-    from txtures.lvpcfg import leftcorner as lc
-    from txtures.lvpcfg.resource import load_pcfg, save_pcfg
+    from prsr import leftcorner as lc
+    from prsr.io import load_pcfg, save_pcfg
 
     pcfg = _toy_pcfg()
     save_pcfg(tmp_path, pcfg)
@@ -533,7 +501,7 @@ def test_synproc_model_stores_the_pcfg_and_compiles_on_load(tmp_path):
 
 
 def _binary_toy_pcfg():
-    from txtures.lvpcfg.leftcorner import Pcfg
+    from prsr.leftcorner import Pcfg
 
     grammar = [
         "ROOT_0 -> S_0 1.0",
@@ -578,8 +546,8 @@ def _inside(pcfg, words):
 def test_reference_parser_sums_to_the_pcfg_inside_probability():
     import math
 
-    from txtures.lvpcfg import leftcorner as lc
-    from txtures.lvpcfg.synproc import Tables, reference_parse
+    from prsr import leftcorner as lc
+    from prsr.synproc import Tables, reference_parse
 
     pcfg = _binary_toy_pcfg().without_unaries()
     tables = Tables(lc.compile_model(pcfg))
@@ -593,8 +561,8 @@ def test_reference_parser_sums_to_the_pcfg_inside_probability():
 
 
 def test_reference_parser_finds_the_best_sequence():
-    from txtures.lvpcfg import leftcorner as lc
-    from txtures.lvpcfg.synproc import Tables, reference_parse
+    from prsr import leftcorner as lc
+    from prsr.synproc import Tables, reference_parse
 
     tables = Tables(lc.compile_model(_binary_toy_pcfg().without_unaries()))
     words = "the dogs see big cats .".split()
@@ -616,9 +584,9 @@ def test_reference_parser_finds_the_best_sequence():
 def test_batched_parser_matches_the_reference(beam):
     import math
 
-    from txtures.lvpcfg import leftcorner as lc
-    from txtures.lvpcfg.parser import Parser
-    from txtures.lvpcfg.synproc import Tables, reference_parse
+    from prsr import leftcorner as lc
+    from prsr.parser import Parser
+    from prsr.synproc import Tables, reference_parse
 
     for pcfg in (_binary_toy_pcfg(), _toy_pcfg()):
         model = lc.compile_model(pcfg.without_unaries())
@@ -643,7 +611,7 @@ def test_batched_parser_matches_the_reference(beam):
 
 
 def test_lexicon_merge_once_and_as_synproc_does():
-    from txtures.lvpcfg.synproc import MergedLexicon, berkeley_signature
+    from prsr.synproc import MergedLexicon, berkeley_signature
 
     assert berkeley_signature("market") == "UNK-LC"
     assert berkeley_signature("UNK-LC") == "UNK-CAPS-DASH"
@@ -670,9 +638,9 @@ def test_lexicon_merge_once_and_as_synproc_does():
 def test_continuous_batching_keeps_results_and_order(max_sentences, window):
     import math
 
-    from txtures.lvpcfg import leftcorner as lc
-    from txtures.lvpcfg.parser import Parser
-    from txtures.lvpcfg.synproc import Tables, reference_parse
+    from prsr import leftcorner as lc
+    from prsr.parser import Parser
+    from prsr.synproc import Tables, reference_parse
 
     model = lc.compile_model(_binary_toy_pcfg().without_unaries())
     tables = Tables(model)
@@ -703,9 +671,9 @@ def test_continuous_batching_keeps_results_and_order(max_sentences, window):
 
 
 def test_trees_from_the_best_sequence_cover_the_sentence():
-    from txtures.lvpcfg import leftcorner as lc
-    from txtures.lvpcfg.evaluation import for_scoring, tree_from_states
-    from txtures.lvpcfg.synproc import Tables, reference_parse
+    from prsr import leftcorner as lc
+    from prsr.evaluation import for_scoring, tree_from_states
+    from prsr.synproc import Tables, reference_parse
 
     tables = Tables(lc.compile_model(_binary_toy_pcfg().without_unaries()))
     words = "the dogs see big cats .".split()
@@ -722,8 +690,8 @@ def test_trees_from_the_best_sequence_cover_the_sentence():
 
 
 def test_trees_are_normalized_alike_for_scoring():
-    from txtures.lvpcfg.evaluation import for_scoring, gold_for_scoring, unlabeled
-    from txtures.lvpcfg.trees import parse
+    from prsr.evaluation import for_scoring, gold_for_scoring, unlabeled
+    from prsr.trees import parse
 
     gold = "(S-lS (N-lA (N-aD (N-aD-PRTRM dogs))) (V-aN (V-aN-PRTRM bark)))"
     assert str(gold_for_scoring(gold)) == "(S (N dogs) (V-aN bark))"
@@ -736,7 +704,7 @@ def test_trees_are_normalized_alike_for_scoring():
 def test_chunked_binary_level_matches_one_call(monkeypatch):
     import torch
 
-    from txtures.lvpcfg import inside
+    from prsr import inside
 
     torch.manual_seed(0)
     binary = torch.rand(5, 4, 4, 4, dtype=torch.float64, requires_grad=True)

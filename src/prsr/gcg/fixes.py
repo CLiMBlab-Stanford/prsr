@@ -1,15 +1,15 @@
-# This file is part of txtures. It is translated from ModelBlocks
+# This file is part of prsr. It is translated from ModelBlocks
 # (resource-gcg/scripts/make-trees-fixed.pl),
 # Copyright 2009, ModelBlocks developers, and was modified for txtures in 2026:
 # the Perl rules are kept verbatim and their control flow is rewritten in Python.
 #
-# txtures is free software: you can redistribute it and/or modify it under the
+# prsr is free software: you can redistribute it and/or modify it under the
 # terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or (at your option) any later
 # version. See LICENSE.
 """The treebank repairs of `make-trees-fixed.pl`, applied to one tree line."""
 
-from txtures.gcg.perl import PerlString
+from prsr.gcg.perl import PerlString
 
 VARIABLES = {}
 

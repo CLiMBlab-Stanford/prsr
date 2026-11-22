@@ -1,15 +1,15 @@
-# This file is part of txtures. It is translated from ModelBlocks
+# This file is part of prsr. It is translated from ModelBlocks
 # (resource-gcg/scripts/annotate-gcg15.pl),
 # Copyright 2009, ModelBlocks developers, and was modified for txtures in 2026:
 # the Perl rules are kept verbatim and their control flow is rewritten in Python.
 #
-# txtures is free software: you can redistribute it and/or modify it under the
+# prsr is free software: you can redistribute it and/or modify it under the
 # terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or (at your option) any later
 # version. See LICENSE.
 """The gcg15 reannotation rules of `annotate-gcg15.pl`, applied to one tree line."""
 
-from txtures.gcg.perl import PerlString
+from prsr.gcg.perl import PerlString
 
 VARIABLES = {
     "NOMINALS": r"(?:NP(?![^ ]*-TMP)|NS|NN|S[^ ]*-NOM|SBAR[^ ]*-NOM|SBAR[^ ]*-PRD(?= [<\[]WH| [<\[]IN that))",

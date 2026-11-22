@@ -1,6 +1,6 @@
 """EM iterations with the grammar and lexicon kept as tensors, for training on a GPU.
 
-`txtures.lvpcfg.em` and `txtures.lvpcfg.lexicon` define the computation and
+`prsr.em` and `prsr.lexicon` define the computation and
 are checked against Berkeley's trainer; this module performs the same
 computation on tensors, and `test_lvpcfg` checks it against them:
 
@@ -21,9 +21,9 @@ from dataclasses import dataclass, replace
 import numpy as np
 import torch
 
-from txtures.lvpcfg.em import Corpus, Grammar, prepare
-from txtures.lvpcfg.inside import expected_counts
-from txtures.lvpcfg.lexicon import PRUNE, RARE, SMOOTH_IN_UNKNOWNS, SMOOTHING, Lexicon
+from prsr.em import Corpus, Grammar, prepare
+from prsr.inside import expected_counts
+from prsr.lexicon import PRUNE, RARE, SMOOTH_IN_UNKNOWNS, SMOOTHING, Lexicon
 
 
 @dataclass
@@ -365,7 +365,7 @@ def split(state: State, generator: torch.Generator, randomness: float = 1.0) -> 
 
 def merge_statistics(corpus: Corpus, state: State) -> tuple[dict, dict]:
     """`splitmerge.merge_statistics` on tensors: merge weights and losses by category."""
-    from txtures.lvpcfg.inside import node_posteriors
+    from prsr.inside import node_posteriors
 
     device = state.device
     tok = tokens(corpus, device)

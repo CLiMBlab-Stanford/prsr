@@ -5,12 +5,26 @@ build-backend = "hatchling.build"
 [project]
 name = "prsr"
 version = "0.0.0"
-description = "GPU latent-variable PCFG training and left-corner parsing"
+description = "Latent-variable PCFG training and left-corner parsing in PyTorch"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{ name = "Cory Shain" }]
+dependencies = ["numpy>=1.26,<3", "torch>=2.4,<3"]
 
 [project.urls]
 Repository = "https://github.com/CLiMBlab-Stanford/prsr"
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.12,<1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]

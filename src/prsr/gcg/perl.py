@@ -2,7 +2,7 @@
 
 The ModelBlocks tree scripts rewrite one line, Perl's `$_`, with `s///`
 substitutions whose patterns and replacements are kept verbatim in
-`txtures.gcg.rules` and `txtures.gcg.fixes`. `PerlString` applies them as
+`prsr.gcg.rules` and `prsr.gcg.fixes`. `PerlString` applies them as
 Perl would:
 
 - `$NAME` and `${NAME}` in a pattern or a replacement are replaced by the

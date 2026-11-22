@@ -1,9 +1,9 @@
-# This file is part of txtures. The parser follows ModelBlocks
+# This file is part of prsr. The parser follows ModelBlocks
 # (resource-incrsem/src/synproc.cpp and include/StoreStateSynProc.hpp,
 # include/Beam.hpp, include/BerkUnkWord.hpp), Copyright 2009, ModelBlocks
 # developers, reimplemented for txtures in 2026.
 #
-# txtures is free software: you can redistribute it and/or modify it under the
+# prsr is free software: you can redistribute it and/or modify it under the
 # terms of the GNU General Public License as published by the Free Software
 # Foundation, either version 3 of the License, or (at your option) any later
 # version. See LICENSE.
@@ -44,7 +44,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from txtures.lvpcfg import leftcorner as lc
+from prsr import leftcorner as lc
 
 ROOT = lc.ROOT
 BOTTOM = lc.TERMINAL

@@ -27,9 +27,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from txtures.lvpcfg import splitmerge as sm
-from txtures.lvpcfg.em import Corpus, Grammar, normalize
-from txtures.lvpcfg.lexicon import RARE, Lexicon, train_tokens
+from prsr import splitmerge as sm
+from prsr.em import Corpus, Grammar, normalize
+from prsr.lexicon import RARE, Lexicon, train_tokens
 
 LOG = logging.getLogger(__name__)
 
@@ -98,12 +98,12 @@ def train(
 ) -> tuple[Grammar, Lexicon, dict[int, sm.SplitTree], TrainingLog]:
     """Run Berkeley's split-merge-smooth schedule; return the final grammar, lexicon, and log.
 
-    The grammar and lexicon stay on `device` as tensors (`txtures.lvpcfg.fast`)
+    The grammar and lexicon stay on `device` as tensors (`prsr.fast`)
     from the baseline to the end.
     """
     import torch
 
-    from txtures.lvpcfg import fast
+    from prsr import fast
 
     report = progress or LOG.info
     rng = np.random.default_rng(seed)
