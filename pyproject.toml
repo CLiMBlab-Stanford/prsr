@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "prsr"
+version = "0.0.0"
+description = "GPU latent-variable PCFG training and left-corner parsing"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "Cory Shain" }]
+
+[project.urls]
+Repository = "https://github.com/CLiMBlab-Stanford/prsr"
