@@ -40,11 +40,11 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from dataclasses import dataclass
 
 import numpy as np
 
 from prsr import leftcorner as lc
+from prsr.result import Parse, State
 
 ROOT = lc.ROOT
 BOTTOM = lc.TERMINAL
@@ -182,17 +182,6 @@ class Tables:
         return {j: float(w / total) for j, w in ((0, j0), (1, j1)) if w > 0}
 
 
-State = tuple[int, int, int, tuple[tuple[int, int], ...]]
-
-
-@dataclass
-class Parse:
-    """Per-word surprisal (bits) and the most likely sequence of hidden states."""
-
-    surprisal: list[float]
-    states: list[State | None]
-
-
 START: State = (-1, 0, 1, ((-1, -1),))
 """synproc's start, `S/.` with preterminal `.`, `f = 0`, `j = 1`: its new store is empty.
 
@@ -282,7 +271,7 @@ def reference_parse(
         for t in range(len(words), 0, -1):
             states[t - 1] = state
             state = beams[t][state][1]
-    return Parse(surprisal, states)
+    return Parse(list(words), surprisal, states, tables.symbols)
 
 
 class MergedLexicon:

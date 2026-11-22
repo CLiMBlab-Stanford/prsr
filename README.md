@@ -14,3 +14,15 @@ prsr ships no treebank data. Training needs your own copy of the Penn
 Treebank or another treebank.
 
 The API is not yet stable. Version 0.1 will fix the parse result type.
+
+```python
+from prsr import Parser, leftcorner
+
+parser = Parser(leftcorner.compile_model(pcfg.without_unaries(), "cuda"))
+for index, parse in parser.parse_stream(sentences):
+    print(parse.surprisal, parse.preterminals, parse.tree())
+```
+
+Each `Parse` holds a sentence's words, per-word surprisal in bits, and the
+states of the best path. `parse.failed` is true when the beam emptied; then
+`tree()` returns `None`.

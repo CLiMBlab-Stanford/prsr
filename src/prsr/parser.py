@@ -36,6 +36,7 @@ from dataclasses import dataclass
 import torch
 
 from prsr import leftcorner as lc
+from prsr.result import Parse
 from prsr.synproc import MergedLexicon
 
 NEG = -math.inf
@@ -424,12 +425,12 @@ class Parser:
 
     def parse(
         self, sentences: list[list[str]], max_sentences: int = 32, window: int = 4096
-    ) -> list[dict]:
-        """Parse sentences; per sentence, per-word surprisal (bits) and the best states."""
+    ) -> list[Parse]:
+        """Parse sentences, returning one `Parse` per sentence in input order."""
         return [result for _, result in self.parse_stream(sentences, max_sentences, window)]
 
     def parse_stream(self, sentences, max_sentences: int = 32, window: int = 4096):
-        """Yield `(index, result)` for each sentence, in input order, parsing many at once.
+        """Yield `(index, Parse)` for each sentence, in input order, parsing many at once.
 
         Sentences are admitted as others finish, up to `max_sentences` at a
         time, each advancing through its own words; finished results wait in
@@ -442,7 +443,7 @@ class Parser:
         position = [0] * count  # next word of each sentence
         surprisal: dict[int, list[float]] = {}
         started: dict[int, int] = {}  # sentence -> step at which it was admitted
-        finished: dict[int, dict] = {}
+        finished: dict[int, Parse] = {}
         history: dict[int, Beams] = {}
         beams = _empty(self.slots, dev)
         queue, step, emitted = 0, 0, 0
@@ -456,7 +457,7 @@ class Parser:
                 and queue < emitted + window
             ):
                 if not sentences[queue]:
-                    finished[queue] = {"surprisal": [], "states": []}
+                    finished[queue] = self._result(sentences[queue], [], [])
                 else:
                     new.append(queue)
                 queue += 1
@@ -480,10 +481,11 @@ class Parser:
             for s in words:
                 position[s] += 1
             for s in done:
-                finished[s] = {
-                    "surprisal": surprisal.pop(s) + [math.nan] * (len(sentences[s]) - position[s]),
-                    "states": _best_path(history, s, started.pop(s), step, len(sentences[s])),
-                }
+                finished[s] = self._result(
+                    sentences[s],
+                    surprisal.pop(s) + [math.nan] * (len(sentences[s]) - position[s]),
+                    _best_path(history, s, started.pop(s), step, len(sentences[s])),
+                )
             keep = torch.ones(len(new_beams.sentence), dtype=torch.bool, device=dev)
             for s in done:
                 keep &= new_beams.sentence != s
@@ -496,6 +498,9 @@ class Parser:
             while emitted < count and emitted in finished:
                 yield emitted, finished.pop(emitted)
                 emitted += 1
+
+    def _result(self, words, surprisal, states) -> Parse:
+        return Parse(list(words), surprisal, states, self.model.symbols)
 
     def _start(self, new: list[int], step: int) -> Beams:
         dev, n = self.device, len(new)

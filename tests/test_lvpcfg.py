@@ -605,9 +605,9 @@ def test_batched_parser_matches_the_reference(beam):
         results = Parser(model, beam=beam, working=2).parse(sentences)
         for words, result in zip(sentences, results, strict=True):
             expected = reference_parse(tables, words, beam=beam)
-            for a, b in zip(result["surprisal"], expected.surprisal, strict=True):
+            for a, b in zip(result.surprisal, expected.surprisal, strict=True):
                 assert (math.isnan(a) and math.isnan(b)) or abs(a - b) < 1e-9, (words, a, b)
-            assert result["states"] == expected.states
+            assert result.states == expected.states
 
 
 def test_lexicon_merge_once_and_as_synproc_does():
@@ -659,12 +659,35 @@ def test_continuous_batching_keeps_results_and_order(max_sentences, window):
     assert [index for index, _ in streamed] == list(range(len(sentences)))
     for words, (_, result) in zip(sentences, streamed, strict=True):
         if not words:
-            assert result == {"surprisal": [], "states": []}
+            assert (result.words, result.surprisal, result.states) == ([], [], [])
             continue
         expected = reference_parse(tables, words, beam=20)
-        for a, b in zip(result["surprisal"], expected.surprisal, strict=True):
+        for a, b in zip(result.surprisal, expected.surprisal, strict=True):
             assert (math.isnan(a) and math.isnan(b)) or abs(a - b) < 1e-9
-        assert result["states"] == expected.states
+        assert result.states == expected.states
+
+
+def test_parse_result_reports_tree_preterminals_and_failure():
+    import math
+
+    from prsr import leftcorner as lc
+    from prsr.parser import Parser
+    from prsr.synproc import Tables, reference_parse
+
+    model = lc.compile_model(_binary_toy_pcfg().without_unaries())
+    tables = Tables(model)
+    words = "the dogs see big cats .".split()
+    [result] = Parser(model, beam=50).parse([words])
+    expected = reference_parse(tables, words, beam=50)
+    assert result.words == words and not result.failed
+    assert str(result.tree()) == str(expected.tree())
+    assert list(result.tree().leaves()) == words
+    assert result.preterminals == [tables.symbols[s[0]] for s in expected.states]
+    assert abs(result.bits - sum(expected.surprisal)) < 1e-9
+    # every word is known, but a noun phrase alone is not a sentence
+    [failed] = Parser(model, beam=50).parse([["the", "dogs"]])
+    assert failed.failed and failed.tree() is None and math.isnan(failed.bits)
+    assert failed.preterminals == [None, None]
 
 
 # Trees from parses, for scoring
