@@ -4,7 +4,7 @@ The names below and the `prsr.gcg` module are the stable API. Other modules
 are the implementation and may change in minor versions.
 """
 
-__version__ = "0.0.0"
+__version__ = "0.1.0"
 
 TRAIN_VERSION = 2
 """Increment whenever `train` would give a different grammar for the same trees and options.
