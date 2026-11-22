@@ -1,0 +1,28 @@
+site_name: prsr
+site_description: Latent-variable PCFG training and left-corner parsing in PyTorch
+site_url: https://prsr.readthedocs.io/
+repo_url: https://github.com/CLiMBlab-Stanford/prsr
+edit_uri: blob/main/docs/
+docs_dir: docs
+exclude_docs: requirements.txt
+theme:
+  name: readthedocs
+nav:
+  - Home: index.md
+  - Training: training.md
+  - Parsing: parsing.md
+  - gcg15 reannotation: gcg.md
+  - Versions and caching: versions.md
+  - Validation: validation.md
+  - API stability: api.md
+markdown_extensions:
+  - toc:
+      permalink: true
+  - tables
+  - fenced_code
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
