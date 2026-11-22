@@ -67,3 +67,15 @@ def test_scalars_and_marking():
     assert line.get("j") == 0.5 and line.get("missing") == 0
     line.mark_children()
     assert line.text == "^S <NP [DT a]> <VP b>^"
+
+
+def test_training_lines_prepare_and_filter_fail_trees():
+    from prsr.gcg import mark_preterminals, remove_operators, training_lines
+
+    lines = [x for x in (DATA / "expected.gcg15").read_text().splitlines() if x != ARTICLE]
+    kept = training_lines(lines, fail_trees="keep")
+    assert kept == [mark_preterminals(remove_operators(x)) for x in lines]
+    dropped = training_lines(lines)
+    assert len(dropped) == len(lines) - 1 and not any(x.startswith("(FAIL ") for x in dropped)
+    with pytest.raises(ValueError, match="fail_trees"):
+        training_lines(lines, fail_trees="maybe")

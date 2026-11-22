@@ -72,7 +72,10 @@ pull-request metadata, not in ordinary technical documentation.
 
 prsr computes grammars, parses, and surprisal estimates that end up in
 published analyses. A change that alters computed values must be deliberate,
-tested, and stated in the pull request and release notes. Test numerical
+tested, and stated in the pull request and release notes, and it must
+increment `prsr.TRAIN_VERSION` (trained grammars) or `prsr.PARSE_VERSION`
+(exported models, compilation, parses, and surprisal) so that downstream
+caches are not reused silently. Test numerical
 behavior against an independent reference (for example, brute-force
 marginalization on a small grammar) where one exists, and do not loosen a
 numerical tolerance to make a test pass without explaining why the new

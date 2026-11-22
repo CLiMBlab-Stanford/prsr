@@ -36,7 +36,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from prsr.em import Corpus, Grammar, prepare
+from prsr.em import Corpus, Rules, prepare
 from prsr.inside import node_posteriors
 from prsr.lexicon import Lexicon
 
@@ -87,12 +87,12 @@ def smoothers(trees: Mapping[int, SplitTree], smooth: float) -> dict[int, np.nda
 
 
 def split(
-    grammar: Grammar,
+    grammar: Rules,
     lexicon: Lexicon,
     trees: Mapping[int, SplitTree],
     rng: np.random.Generator,
     randomness: float = 1.0,
-) -> tuple[Grammar, Lexicon, dict[int, SplitTree]]:
+) -> tuple[Rules, Lexicon, dict[int, SplitTree]]:
     """Double every category's substates (not `ROOT`'s), adding Berkeley's noise to rules."""
     old = grammar.substates
     new = {c: n if c == ROOT_CATEGORY else 2 * n for c, n in old.items()}
@@ -140,7 +140,7 @@ def split(
                         out[fa * pa + p, fb * cb + i] = score / fb + (0.0 if fb == 1 else sign * e)
         unary[(a, b)] = out
     new_trees = {c: extend_split_tree(t, new[c] > old[c]) for c, t in trees.items()}
-    return Grammar(new, binary, unary, None), split_lexicon(lexicon, new), new_trees
+    return Rules(new, binary, unary, None), split_lexicon(lexicon, new), new_trees
 
 
 def _halve(values: np.ndarray, factor: int) -> np.ndarray:
@@ -175,7 +175,7 @@ class MergeStatistics:
 
 
 def merge_statistics(
-    corpus: Corpus, grammar: Grammar, lexicon: Lexicon, device: str = "cpu"
+    corpus: Corpus, grammar: Rules, lexicon: Lexicon, device: str = "cpu"
 ) -> MergeStatistics:
     """`computeMergeWeights` and `computeDeltas`, with lexical smoothing as Berkeley uses there."""
     prepared = prepare(corpus, grammar, lexicon, no_smoothing=False, device=device)
@@ -286,12 +286,12 @@ def merge_mapping(
 
 
 def merge(
-    grammar: Grammar,
+    grammar: Rules,
     lexicon: Lexicon,
     trees: Mapping[int, SplitTree],
     pairs: Mapping[int, list[int]],
     weights: Mapping[int, np.ndarray],
-) -> tuple[Grammar, Lexicon, dict[int, SplitTree]]:
+) -> tuple[Rules, Lexicon, dict[int, SplitTree]]:
     """`doTheMerges`: merge the chosen sibling pairs in the grammar, lexicon, and split trees."""
     mapping = merge_mapping(grammar.substates, pairs)
     new = {c: int(m.max()) + 1 if len(m) else 0 for c, m in mapping.items()}
@@ -337,7 +337,7 @@ def merge(
         lexicon.total_unseen,
     )
     new_trees = {c: prune_split_tree(t, mapping[c], pairs.get(c, ())) for c, t in trees.items()}
-    return Grammar(new, binary, unary, grammar.smoother), merged_lexicon, new_trees
+    return Rules(new, binary, unary, grammar.smoother), merged_lexicon, new_trees
 
 
 def prune_split_tree(tree: SplitTree, mapping: np.ndarray, merged) -> SplitTree:

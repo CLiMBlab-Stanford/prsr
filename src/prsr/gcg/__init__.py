@@ -33,12 +33,14 @@ do in ModelBlocks.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 
 from prsr.gcg import fixes, rules
 from prsr.gcg.perl import PerlString
 
 __all__ = [
     "mark_preterminals",
+    "training_lines",
     "remove_operators",
     "ARTICLE",
     "GCG15_VERSION",
@@ -144,3 +146,19 @@ def mark_preterminals(line: str) -> str:
     line = re.sub(r"\(([^\(\) ]*) ([^\(\) ]*)\)", r"(\1-PRTRM \2)", line)
     line = re.sub(r"\([^ ]*,[^ -]*", "(Pc", line)
     return re.sub(r"\(:", "(Pk", line)
+
+
+def training_lines(lines: Iterable[str], fail_trees: str = "drop") -> list[str]:
+    """gcg15 tree lines prepared for `prsr.training_tree`, as ModelBlocks trains on them.
+
+    Each line goes through `remove_operators` and `mark_preterminals`.
+    `fail_trees="drop"` leaves out the `FAIL` trees of failed
+    reannotations; `"keep"` trains on them, as ModelBlocks does.
+    """
+    if fail_trees not in ("drop", "keep"):
+        raise ValueError(f"fail_trees must be drop or keep, not {fail_trees!r}")
+    return [
+        mark_preterminals(remove_operators(line))
+        for line in lines
+        if fail_trees == "keep" or not line.startswith("(FAIL ")
+    ]

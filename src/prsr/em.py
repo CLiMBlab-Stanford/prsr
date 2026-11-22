@@ -28,7 +28,7 @@ from prsr.trees import Tree
 
 
 @dataclass
-class Grammar:
+class Rules:
     """Rule probabilities by substate: `binary[(A, B, C)]` is `[a, b, c]`, `unary[(A, B)]` `[a, b]`."""
 
     substates: Mapping[int, int]
@@ -103,7 +103,7 @@ class Prepared:
 
 def prepare(
     corpus: Corpus,
-    grammar: Grammar,
+    grammar: Rules,
     lexicon: Lexicon,
     no_smoothing: bool = True,
     device: str = "cpu",
@@ -160,12 +160,12 @@ def prepare(
 
 def iterate(
     corpus: Corpus,
-    grammar: Grammar,
+    grammar: Rules,
     lexicon: Lexicon,
     device: str = "cpu",
     rare: int = RARE,
     lexicon_only: bool = False,
-) -> tuple[float, Grammar, Lexicon]:
+) -> tuple[float, Rules, Lexicon]:
     """One EM iteration; returns the training log-likelihood and the new grammar and lexicon.
 
     With `lexicon_only`, only the lexicon is re-estimated and the grammar is
@@ -200,7 +200,7 @@ def iterate(
     u_counts = {
         k: unary_counts[i, : sub[k[0]], : sub[k[1]]].cpu().numpy() for k, i in unary_index.items()
     }
-    new_grammar = Grammar(grammar.substates, *normalize(b_counts, u_counts), grammar.smoother)
+    new_grammar = Rules(grammar.substates, *normalize(b_counts, u_counts), grammar.smoother)
     if grammar.smoother is not None:
         smoothed_b = {
             k: np.einsum("ap,pbc->abc", grammar.smoother[k[0]], v)

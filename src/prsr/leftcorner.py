@@ -46,6 +46,7 @@ import re
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -103,6 +104,21 @@ class Pcfg:
                 pcfg.terminal[symbol] = 1.0
                 pcfg.lexicon[symbol][word] = float(value)
         return pcfg
+
+    def save(self, directory: str | Path) -> None:
+        """Write the PCFG as `pcfg.npz` and `pcfg.json` into `directory`, creating it if needed."""
+        from prsr import io
+
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        io.save_pcfg(directory, self)
+
+    @classmethod
+    def load(cls, directory: str | Path) -> Pcfg:
+        """Read a PCFG written by `save`."""
+        from prsr import io
+
+        return io.load_pcfg(Path(directory))
 
     def without_unaries(self) -> Pcfg:
         """`ccu2cc.py`: fold the sum over unary chains into rules and the lexicon."""

@@ -21,7 +21,7 @@ from dataclasses import dataclass, replace
 import numpy as np
 import torch
 
-from prsr.em import Corpus, Grammar, prepare
+from prsr.em import Corpus, Rules, prepare
 from prsr.inside import expected_counts
 from prsr.lexicon import PRUNE, RARE, SMOOTH_IN_UNKNOWNS, SMOOTHING, Lexicon
 
@@ -112,7 +112,7 @@ def smoother_tensor(table, categories: int, size: int, device) -> torch.Tensor |
     return torch.as_tensor(out, device=device)
 
 
-def to_state(corpus: Corpus, grammar: Grammar, lexicon: Lexicon, device: str = "cpu") -> State:
+def to_state(corpus: Corpus, grammar: Rules, lexicon: Lexicon, device: str = "cpu") -> State:
     """Copy a dictionary grammar and lexicon into tensors."""
     prepared = prepare(corpus, grammar, lexicon, True, device)
     tok = tokens(corpus, device)
@@ -163,15 +163,15 @@ def to_state(corpus: Corpus, grammar: Grammar, lexicon: Lexicon, device: str = "
 
 
 def to_dicts(
-    corpus: Corpus, state: State, grammar: Grammar, lexicon: Lexicon
-) -> tuple[Grammar, Lexicon]:
+    corpus: Corpus, state: State, grammar: Rules, lexicon: Lexicon
+) -> tuple[Rules, Lexicon]:
     """Copy a state back into dictionaries shaped like `grammar` and `lexicon`."""
     prepared = prepare(corpus, grammar, lexicon, True, state.device)
     tok = tokens(corpus, state.device)
     sub = state.substates
     binary = state.binary.cpu().numpy()
     unary = state.unary.cpu().numpy()
-    new_grammar = Grammar(
+    new_grammar = Rules(
         sub,
         {
             k: binary[i, : sub[k[0]], : sub[k[1]], : sub[k[2]]].copy()

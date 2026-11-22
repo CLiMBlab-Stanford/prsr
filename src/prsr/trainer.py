@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from prsr import splitmerge as sm
-from prsr.em import Corpus, Grammar, normalize
+from prsr.em import Corpus, Rules, normalize
 from prsr.lexicon import RARE, Lexicon, train_tokens
 
 LOG = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ def baseline(
     rng: np.random.Generator,
     randomness: float = 1.0,
     rare: int = RARE,
-) -> tuple[Grammar, Lexicon]:
+) -> tuple[Rules, Lexicon]:
     """The initial grammar and lexicon, with one substate per category."""
     substates = {c: 1 for c in categories.values()}
     noise = 1.0 + rng.random((len(corpus.tokens), 1)) * randomness / 100.0
@@ -82,7 +82,7 @@ def baseline(
     for table in (binary, unary):
         for key in table:
             table[key] = table[key] + rng.random(table[key].shape) * randomness
-    return Grammar(substates, *normalize(binary, unary)), lexicon
+    return Rules(substates, *normalize(binary, unary)), lexicon
 
 
 def train(
@@ -95,7 +95,7 @@ def train(
     device: str = "cpu",
     randomness: float = 1.0,
     progress: Callable[[str], None] | None = None,
-) -> tuple[Grammar, Lexicon, dict[int, sm.SplitTree], TrainingLog]:
+) -> tuple[Rules, Lexicon, dict[int, sm.SplitTree], TrainingLog]:
     """Run Berkeley's split-merge-smooth schedule; return the final grammar, lexicon, and log.
 
     The grammar and lexicon stay on `device` as tensors (`prsr.fast`)
@@ -149,7 +149,7 @@ def train(
         )
         state, lls = em(state, updates[2], f"round {round_} smooth")
         log.add(round_, "smooth", lls, sum(state.substates.values()))
-    template_grammar = Grammar(state.substates, template_grammar.binary, template_grammar.unary)
+    template_grammar = Rules(state.substates, template_grammar.binary, template_grammar.unary)
     grammar, lexicon = fast.to_dicts(corpus, state, template_grammar, template_lexicon)
     if cycles:
         grammar.smoother = sm.smoothers(trees, GRAMMAR_SMOOTHING)

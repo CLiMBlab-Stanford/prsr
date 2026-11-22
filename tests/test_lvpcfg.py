@@ -196,11 +196,11 @@ def test_normalize_divides_by_parent_totals_and_prunes():
 def test_split_noise_keeps_parent_totals_and_is_small():
     import numpy as np
 
-    from prsr.em import Grammar
+    from prsr.em import Rules
     from prsr.lexicon import Lexicon
     from prsr.splitmerge import split
 
-    grammar = Grammar(
+    grammar = Rules(
         {0: 1, 1: 1, 2: 1}, {(1, 2, 2): np.array([[[0.6]]])}, {(1, 2): np.array([[0.4]])}
     )
     lexicon = Lexicon({0: 1, 1: 1, 2: 1}, tag_count={2: np.array([10.0])})
@@ -228,12 +228,12 @@ def test_smoother_mixes_within_the_first_split():
 def test_merge_sums_children_and_averages_parents():
     import numpy as np
 
-    from prsr.em import Grammar
+    from prsr.em import Rules
     from prsr.lexicon import Lexicon
     from prsr.splitmerge import merge
 
     binary = {(1, 1, 1): np.arange(8, dtype=float).reshape(2, 2, 2)}
-    grammar = Grammar({0: 1, 1: 2}, binary, {})
+    grammar = Rules({0: 1, 1: 2}, binary, {})
     lexicon = Lexicon({0: 1, 1: 2}, tag_count={1: np.array([1.0, 3.0])})
     weights = {1: np.array([0.25, 0.75])}
     new, lex, trees = merge(grammar, lexicon, {1: [0, [0, 1]]}, {1: [0]}, weights)
@@ -287,7 +287,7 @@ def test_training_runs_and_likelihood_improves():
 
 def _toy_training(cycles=1, updates=(2, 1, 1)):
     from prsr.em import index_trees
-    from prsr.io import category_numbers
+    from prsr.grammar import category_numbers
     from prsr.trainer import train
     from prsr.trees import training_tree
 
@@ -470,7 +470,7 @@ def test_viterbi_unary_closure_takes_the_best_path_of_at_most_two_steps():
 
 def test_trained_grammar_exports_to_a_compilable_pcfg():
     from prsr import leftcorner as lc
-    from prsr.io import category_numbers
+    from prsr.grammar import category_numbers
     from prsr.trees import training_tree
 
     corpus, grammar, lexicon, _ = _toy_training()
@@ -484,17 +484,39 @@ def test_trained_grammar_exports_to_a_compilable_pcfg():
 
 
 def test_synproc_model_stores_the_pcfg_and_compiles_on_load(tmp_path):
+    from prsr import Pcfg
     from prsr import leftcorner as lc
-    from prsr.io import load_pcfg, save_pcfg
 
     pcfg = _toy_pcfg()
-    save_pcfg(tmp_path, pcfg)
-    loaded = load_pcfg(tmp_path)
+    pcfg.save(tmp_path / "model")
+    loaded = Pcfg.load(tmp_path / "model")
     assert loaded.binary == pcfg.binary and loaded.unary == pcfg.unary
     assert loaded.root == pcfg.root and loaded.lexicon == pcfg.lexicon
     assert loaded.terminal == pcfg.terminal
     a, b = lc.compile_model(pcfg.without_unaries()), lc.compile_model(loaded.without_unaries())
     assert a.symbols == b.symbols and (a.plus == b.plus).all()
+
+
+def test_public_api_trains_saves_loads_and_parses(tmp_path):
+    import numpy as np
+
+    import prsr
+
+    lines = (DATA / "trees.txt").read_text().splitlines()
+    trees = [prsr.training_tree(line) for line in lines] * 3
+    grammar = prsr.train(trees, cycles=1, seed=0, updates=(2, 1, 1), device="cpu")
+    assert grammar.training["trees"] == len(trees)
+    assert [p["phase"] for p in grammar.training["phases"]] == ["split", "merge", "smooth"]
+    grammar.save(tmp_path / "grammar")
+    loaded = prsr.Grammar.load(tmp_path / "grammar")
+    assert loaded.categories == grammar.categories
+    for key, value in grammar.rules.binary.items():
+        np.testing.assert_array_equal(loaded.rules.binary[key], value)
+    words = "The horse raced past the barn .".split()
+    [ours] = prsr.Parser.from_grammar(grammar, device="cpu", beam=50).parse([words])
+    [theirs] = prsr.Parser.from_grammar(loaded, device="cpu", beam=50).parse([words])
+    assert ours == theirs and not ours.failed
+    assert list(ours.tree().leaves()) == words
 
 
 # The synproc reference parser
@@ -602,7 +624,7 @@ def test_batched_parser_matches_the_reference(beam):
             )
         ]
         sentences = [s for s in sentences if all(tables.words(w) for w in s)]
-        results = Parser(model, beam=beam, working=2).parse(sentences)
+        results = Parser(model, beam=beam, candidates=2).parse(sentences)
         for words, result in zip(sentences, results, strict=True):
             expected = reference_parse(tables, words, beam=beam)
             for a, b in zip(result.surprisal, expected.surprisal, strict=True):
@@ -654,7 +676,7 @@ def test_continuous_batching_keeps_results_and_order(max_sentences, window):
             "big dogs see the cats .",
         )
     ]
-    parser = Parser(model, beam=20, working=4)
+    parser = Parser(model, beam=20, candidates=4)
     streamed = list(parser.parse_stream(sentences, max_sentences=max_sentences, window=window))
     assert [index for index, _ in streamed] == list(range(len(sentences)))
     for words, (_, result) in zip(sentences, streamed, strict=True):

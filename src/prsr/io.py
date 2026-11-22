@@ -1,4 +1,4 @@
-"""Storage of trained grammars and PCFGs, without pickles.
+"""The files of `Grammar.save` and `Pcfg.save`, without pickles.
 
 `save` writes a trained grammar as `grammar.json` (categories, substates,
 split trees, smoothing), `rules.npz` (rule keys and their substate weights),
@@ -11,41 +11,18 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+if TYPE_CHECKING:
+    from prsr.leftcorner import Pcfg
 
-def write_json(path: Path, value: Any) -> None:
+
+def _write_json(path: Path, value: Any) -> None:
     """Write `value` as indented JSON with a trailing newline."""
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
-@dataclass
-class TrainedGrammar:
-    """A trained grammar as `load` returns it."""
-
-    categories: dict[str, int]
-    grammar: Any  # prsr.em.Grammar
-    lexicon: Any  # prsr.lexicon.Lexicon
-    split_trees: dict[int, Any]
-    training: dict[str, Any]
-
-
-def category_numbers(trees) -> dict[str, int]:
-    """Number categories in order of first appearance (preorder), `ROOT` first."""
-    numbers = {"ROOT": 0}
-    for tree in trees:
-        stack = [tree]
-        while stack:
-            node = stack.pop()
-            if node.is_leaf:
-                continue
-            numbers.setdefault(node.label, len(numbers))
-            stack.extend(reversed(node.children))
-    return numbers
 
 
 def _ragged(table: Mapping[tuple, np.ndarray]) -> dict[str, np.ndarray]:
@@ -67,18 +44,18 @@ def _unragged(data, prefix: str, shape) -> dict[tuple, np.ndarray]:
     return out
 
 
-def save(directory: Path, categories, grammar, lexicon, split_trees, training) -> None:
-    write_json(
+def save(directory: Path, categories, rules, lexicon, split_trees, training) -> None:
+    _write_json(
         directory / "grammar.json",
         {
             "categories": categories,
-            "substates": {str(c): n for c, n in grammar.substates.items()},
+            "substates": {str(c): n for c, n in rules.substates.items()},
             "split_trees": {str(c): t for c, t in split_trees.items()},
-            "smoothed": grammar.smoother is not None,
+            "smoothed": rules.smoother is not None,
         },
     )
     arrays = {}
-    for name, table in (("binary_", grammar.binary), ("unary_", grammar.unary)):
+    for name, table in (("binary_", rules.binary), ("unary_", rules.unary)):
         arrays.update({name + k: v for k, v in _ragged(table).items()})
     np.savez_compressed(directory / "rules.npz", **arrays)
     words: list[str] = sorted(
@@ -119,7 +96,7 @@ def save(directory: Path, categories, grammar, lexicon, split_trees, training) -
     )
     lex["word_count"] = np.array([lexicon.word_count.get(w, 0.0) for w in words])
     np.savez_compressed(directory / "lexicon.npz", **lex)
-    write_json(
+    _write_json(
         directory / "lexicon.json",
         {
             "words": words,
@@ -128,12 +105,13 @@ def save(directory: Path, categories, grammar, lexicon, split_trees, training) -
             "total_unseen": lexicon.total_unseen,
         },
     )
-    write_json(directory / "training.json", training)
+    _write_json(directory / "training.json", training)
 
 
-def load(directory: Path) -> TrainedGrammar:
+def load(directory: Path) -> tuple:
+    """The fields of a `prsr.Grammar` saved with `save`, in order."""
     from prsr import splitmerge as sm
-    from prsr.em import Grammar
+    from prsr.em import Rules
     from prsr.lexicon import Lexicon
 
     meta = json.loads((directory / "grammar.json").read_text(encoding="utf-8"))
@@ -146,7 +124,7 @@ def load(directory: Path) -> TrainedGrammar:
     unary = _unragged(rules, "unary_", lambda k: (substates[k[0]], substates[k[1]]))
     grammar_smoother = sm.smoothers(split_trees, 0.01) if meta["smoothed"] else None
     lexicon_smoother = sm.smoothers(split_trees, 0.1) if meta["smoothed"] else None
-    grammar = Grammar(substates, binary, unary, grammar_smoother)
+    grammar = Rules(substates, binary, unary, grammar_smoother)
     lex = np.load(directory / "lexicon.npz")
     info = json.loads((directory / "lexicon.json").read_text(encoding="utf-8"))
     words, sigs = info["words"], info["signatures"]
@@ -164,7 +142,7 @@ def load(directory: Path) -> TrainedGrammar:
     lexicon.word_count = {w: float(c) for w, c in zip(words, lex["word_count"], strict=True)}
     lexicon.total, lexicon.total_unseen = info["total"], info["total_unseen"]
     training = json.loads((directory / "training.json").read_text(encoding="utf-8"))
-    return TrainedGrammar(meta["categories"], grammar, lexicon, split_trees, training)
+    return meta["categories"], grammar, lexicon, split_trees, training
 
 
 def save_pcfg(directory: Path, pcfg) -> None:
@@ -203,10 +181,10 @@ def save_pcfg(directory: Path, pcfg) -> None:
         terminal=np.array([index[s] for s in pcfg.terminal], dtype=np.int32),
         terminal_weight=np.array(list(pcfg.terminal.values())),
     )
-    write_json(directory / "pcfg.json", {"symbols": symbols, "words": words})
+    _write_json(directory / "pcfg.json", {"symbols": symbols, "words": words})
 
 
-def load_pcfg(directory: Path):
+def load_pcfg(directory: Path) -> Pcfg:
     from prsr.leftcorner import Pcfg
 
     names = json.loads((directory / "pcfg.json").read_text(encoding="utf-8"))

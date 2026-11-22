@@ -17,7 +17,7 @@ Each word is one step:
    `plus[d-1][b, parent] · gamma_left[d][r] / J0[d-1][b, c0]` for each rule
    `r = parent -> c0 c1` whose left child is the entry's `c0`; with join 1 it
    is `gamma_right[d][r]` renormalized over the rules `b -> c0 ·`. The
-   candidates are pruned, per sentence, to the best `working` partial
+   candidates are pruned, per sentence, to the best `candidates` partial
    scores.
 2. Preterminal, fork, and join for the word, for every survivor.
 3. Entries with the same state keep their best score (Viterbi), and each
@@ -25,7 +25,7 @@ Each word is one step:
 
 Every factor is at most 1, so a partial score bounds its completions. If
 some sentence's best pruned partial beats its last kept entry, the step is
-redone with twice the working size, so the beam is the exact top-`beam`.
+redone with twice as many candidates, so the beam is the exact top-`beam`.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ NEG = -math.inf
 
 
 @dataclass
-class Beams:
+class _Beams:
     """The live beam entries of all sentences (flat)."""
 
     sentence: torch.Tensor  # [M]
@@ -57,18 +57,40 @@ class Beams:
 
 
 class Parser:
-    """synproc's beam search with a compiled left-corner model, on one device."""
+    """synproc's beam search with a compiled left-corner model, on one device.
+
+    `beam` is the number of states each sentence keeps after each word.
+    `candidates` (default `2 * beam`) is how many partial states are scored
+    in full at each word before the beam is cut; a word whose cut could be
+    wrong is redone with twice as many, so it changes speed, not results.
+    `lexicon` is `once`, which merges each word's entries with those of its
+    unknown-word signature once, or `synproc`, which reproduces the cascade
+    of ModelBlocks' synproc (see `prsr.synproc.MergedLexicon`).
+    """
+
+    @classmethod
+    def from_pcfg(cls, pcfg: lc.Pcfg, *, device: str = "auto", **options) -> Parser:
+        """Compile `pcfg` for `device` and parse with it; `options` go to `Parser`."""
+        from prsr._device import resolve
+
+        return cls(lc.compile_model(pcfg.without_unaries(), resolve(device)), **options)
+
+    @classmethod
+    def from_grammar(cls, grammar, *, device: str = "auto", **options) -> Parser:
+        """A parser for a trained `prsr.Grammar`; see `from_pcfg`."""
+        return cls.from_pcfg(grammar.pcfg(), device=device, **options)
 
     def __init__(
         self,
         model: lc.Compiled,
+        *,
         beam: int = 5000,
-        working: int | None = None,
-        lexicon_merge: str = "once",
+        candidates: int | None = None,
+        lexicon: str = "once",
     ):
         self.model = model
         self.beam = beam
-        self.working = working or 2 * beam
+        self.candidates = candidates or 2 * beam
         device = model.plus.device
         self.device = device
         n = len(model.symbols)
@@ -112,11 +134,11 @@ class Parser:
         )
         self.first_any = model.first.sum(dim=2) > 0  # [depths, N]
         self._lexicon: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
-        self.merged = MergedLexicon(model.lexicon, model.index, lexicon_merge)
+        self.merged = MergedLexicon(model.lexicon, model.index, lexicon)
 
     # Lexicon
 
-    def word_entries(self, word: str) -> tuple[torch.Tensor, torch.Tensor]:
+    def _word_entries(self, word: str) -> tuple[torch.Tensor, torch.Tensor]:
         """A word's preterminals and P(word | preterminal), unknown-word mass merged in."""
         if word not in self._lexicon:
             merged = self.merged.entries(word)
@@ -139,7 +161,7 @@ class Parser:
 
     # One word
 
-    def _apex_base(self, beams: Beams):
+    def _apex_base(self, beams: _Beams):
         """Stage 1 scores: candidate (entry, apex, base, depth) with their partial scores.
 
         Only indices and scores are built here; stores are built for survivors.
@@ -189,7 +211,7 @@ class Parser:
         entry, apex, base, log_weight = entry[keep], apex[keep], base[keep], log_weight[keep]
         return entry, apex, base, beams.score[entry] + log_weight
 
-    def _stores(self, beams: Beams, entry, apex, base):
+    def _stores(self, beams: _Beams, entry, apex, base):
         """The new store of each surviving stage-1 candidate, its size, and a shared id."""
         dev = self.device
         depth = beams.size[entry] + beams.fork[entry] - beams.join[entry]
@@ -206,7 +228,7 @@ class Parser:
         unique, store_id = torch.unique(store.reshape(len(entry), -1), dim=0, return_inverse=True)
         return store, new_size, store_id, unique.reshape(-1, self.slots, 2)
 
-    def step(self, beams: Beams, words: list[str], last: torch.Tensor) -> tuple[Beams, bool]:
+    def _step(self, beams: _Beams, words: list[str], last: torch.Tensor) -> tuple[_Beams, bool]:
         """Advance every active sentence by one word (`words[s]` for sentence s)."""
         stage = self._apex_base(beams)
         if stage is None:
@@ -224,12 +246,12 @@ class Parser:
         )
         if len(sentence) == 0:
             return _empty(self.slots, self.device), True
-        # Each sentence has its own working size; a sentence whose pruning could
+        # Each sentence has its own candidate count; a sentence whose pruning could
         # have changed its beam is redone alone, with twice the room.
         dev = self.device
-        work = torch.full((int(sentence.max()) + 1,), self.working, dtype=torch.long, device=dev)
+        work = torch.full((int(sentence.max()) + 1,), self.candidates, dtype=torch.long, device=dev)
         todo = torch.ones_like(work, dtype=torch.bool)
-        done: list[Beams] = []
+        done: list[_Beams] = []
         while True:
             subset = torch.nonzero(todo[sentence]).squeeze(1)
             kept, pruned_best = _top_per_sentence(sentence[subset], bounded[subset], work)
@@ -268,7 +290,7 @@ class Parser:
         dev = self.device
         out = torch.full(size.shape, NEG, dtype=torch.float64, device=dev)
         for s in torch.unique(sentence).tolist():
-            tags, pw = self.word_entries(words[s])
+            tags, pw = self._word_entries(words[s])
             if len(tags) == 0:
                 continue
             mine = torch.nonzero(sentence == s).squeeze(1)
@@ -323,7 +345,7 @@ class Parser:
         top_apex = self._slot(store, size - 1, 0)
         running = None
         for s in torch.unique(sentence).tolist():
-            tags, pw = self.word_entries(words[s])
+            tags, pw = self._word_entries(words[s])
             if len(tags) == 0:
                 continue
             mine = rows[sentence == s]
@@ -354,7 +376,7 @@ class Parser:
         if running is None:
             return _empty(self.slots, dev)
         sent, sid, tag, fork, join, total, e = running
-        return Beams(sent, tag, fork, join, store[e], size[e], total, entry[e])
+        return _Beams(sent, tag, fork, join, store[e], size[e], total, entry[e])
 
     def _candidates(self, part, tags, pw, size, brink, anc0, top_apex, score, last, floor=NEG):
         """Scores of every (survivor, preterminal, fork, join) for one sentence's chunk.
@@ -444,7 +466,7 @@ class Parser:
         surprisal: dict[int, list[float]] = {}
         started: dict[int, int] = {}  # sentence -> step at which it was admitted
         finished: dict[int, Parse] = {}
-        history: dict[int, Beams] = {}
+        history: dict[int, _Beams] = {}
         beams = _empty(self.slots, dev)
         queue, step, emitted = 0, 0, 0
         while emitted < count:
@@ -473,7 +495,7 @@ class Parser:
             history[step] = beams
             words = {s: sentences[s][position[s]] for s in beams.sentence.unique().tolist()}
             last = {s: position[s] + 1 == len(sentences[s]) for s in words}
-            new_beams, _ = self.step(beams, _Lookup(words), _Lookup(last))
+            new_beams, _ = self._step(beams, _Lookup(words), _Lookup(last))
             self._surprisal(beams, new_beams, words, surprisal)
             step += 1
             history[step] = new_beams
@@ -502,9 +524,9 @@ class Parser:
     def _result(self, words, surprisal, states) -> Parse:
         return Parse(list(words), surprisal, states, self.model.symbols)
 
-    def _start(self, new: list[int], step: int) -> Beams:
+    def _start(self, new: list[int], step: int) -> _Beams:
         dev, n = self.device, len(new)
-        return Beams(
+        return _Beams(
             torch.tensor(new, dtype=torch.long, device=dev),
             torch.full((n,), -1, dtype=torch.long, device=dev),
             torch.zeros(n, dtype=torch.long, device=dev),
@@ -515,7 +537,7 @@ class Parser:
             torch.full((n,), -1, dtype=torch.long, device=dev),
         )
 
-    def _surprisal(self, before: Beams, after: Beams, words, surprisal) -> None:
+    def _surprisal(self, before: _Beams, after: _Beams, words, surprisal) -> None:
         """log2 of each sentence's previous beam total over its current one, from its best."""
         sentences = torch.tensor(sorted(words), dtype=torch.long, device=self.device)
         index_b = torch.searchsorted(sentences, before.sentence)
@@ -543,8 +565,8 @@ class _Lookup:
         return self.table[int(key)]
 
 
-def _concat(a: Beams, b: Beams) -> Beams:
-    return Beams(
+def _concat(a: _Beams, b: _Beams) -> _Beams:
+    return _Beams(
         *(
             torch.cat([x, y])
             for x, y in zip(
@@ -556,9 +578,9 @@ def _concat(a: Beams, b: Beams) -> Beams:
     )
 
 
-def _empty(slots: int, device) -> Beams:
+def _empty(slots: int, device) -> _Beams:
     z = torch.zeros(0, dtype=torch.long, device=device)
-    return Beams(
+    return _Beams(
         z,
         z,
         z,
@@ -570,8 +592,8 @@ def _empty(slots: int, device) -> Beams:
     )
 
 
-def _select(beams: Beams, mask: torch.Tensor) -> Beams:
-    return Beams(
+def _select(beams: _Beams, mask: torch.Tensor) -> _Beams:
+    return _Beams(
         *(
             x[mask]
             for x in (
@@ -654,7 +676,7 @@ def _kth_per_sentence(sentence: torch.Tensor, score: torch.Tensor, k: int) -> di
     return {s: found.get(s, NEG) for s in torch.unique(sentence).tolist()}
 
 
-def _concat_all(parts: list[Beams], slots: int, device) -> Beams:
+def _concat_all(parts: list[_Beams], slots: int, device) -> _Beams:
     out = _empty(slots, device)
     for part in parts:
         out = _concat(out, part)
