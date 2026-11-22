@@ -83,8 +83,12 @@ prsr's grammars, parses, and surprisal estimates feed published analyses, and
 downstream packages such as txtures cache them. A change that can alter what
 prsr computes, such as a corrected formula, a different default, or a changed
 pruning rule, must be tested and stated in the pull request and the release
-notes so that downstream users know to recompute. Refactoring, logging, and
-error messages need no such note.
+notes so that downstream users know to recompute. It must also increment
+`TRAIN_VERSION` in `src/prsr/__init__.py` if it can change a trained grammar,
+or `PARSE_VERSION` if it can change an exported PCFG, the compiled model, a
+parse, or a surprisal value. Downstream caches include these numbers in
+their keys. Refactoring, speedups with identical results, logging, and error
+messages need neither a note nor a new version.
 
 Test numerical code against an independent reference where one exists, such
 as brute-force marginalization on a small grammar. The Penn Treebank and data
