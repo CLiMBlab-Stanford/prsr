@@ -1,23 +1,24 @@
-"""Benchmarks of txtures against reference implementations: ModelBlocks and the Berkeley parser.
+"""Benchmarks of prsr against reference implementations: ModelBlocks and the Berkeley parser.
 
-These reproduce, outside the test suite, the checks recorded in txtures'
-validation evidence: the gcg15 reannotation against ModelBlocks' Perl on
+These reproduce, outside the test suite, the checks of prsr's agreement with
+its references: the gcg15 reannotation against ModelBlocks' Perl on
 all of WSJ, the latent-variable PCFG trainer against Berkeley's
 `GrammarTrainer`, the left-corner compilation against ModelBlocks'
 `ccmodel2synproccptmodel`, and the synproc parser against ModelBlocks'
-`synproc`. Run them with `python -m txtures.validation COMMAND`; `--help`
+`synproc`. Run them with `python -m prsr.validation COMMAND`; `--help`
 lists the commands, which run in the order of the pipeline. Long ones are
 meant to run as Slurm jobs, for example
-`sbatch --wrap "python -m txtures.validation berkeley-train 2"`.
+`sbatch --wrap "python -m prsr.validation berkeley-train 2"`.
 
 They need:
 
-- `TXTURES_VALIDATION_WORK`: a directory for everything they write. Much
-  of it is derived from the licensed Penn Treebank, so keep it out of
-  repositories and shared places.
-- `TXTURES_MODELBLOCKS`: a ModelBlocks checkout (its scripts, sources, and
+- `PRSR_VALIDATION_WORK`: a directory for everything they write (default:
+  `validation-work` in the current directory, which prsr's `.gitignore`
+  covers in a checkout). Much of it is derived from the licensed Penn
+  Treebank, so keep it out of repositories and shared places.
+- `PRSR_MODELBLOCKS`: a ModelBlocks checkout (its scripts, sources, and
   headers are used as they are; the C++ is built in the work directory).
-- the `corpora.ptb3` setting: a copy of the Penn Treebank 3.
+- `PRSR_PTB3`: a copy of the Penn Treebank 3.
 - `perl`, `python3`, `java` and `javac` (1.8 or later), `g++` (C++17), and
   `git` on the path; `berkeley-build` clones the Berkeley parser.
 """
@@ -29,7 +30,10 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from txtures.errors import TxturesError
+
+class ValidationError(Exception):
+    """A validation command cannot run, for example because a path is missing."""
+
 
 DATA = Path(__file__).with_name("data")
 BERKELEY_REPOSITORY = "https://github.com/slavpetrov/berkeleyparser.git"
@@ -65,7 +69,7 @@ class Paths:
         ):
             if candidate.is_dir():
                 return candidate
-        raise TxturesError(f"{self.ptb3} has no parsed/mrg/wsj directory")
+        raise ValidationError(f"{self.ptb3} has no parsed/mrg/wsj directory")
 
     @property
     def jar(self) -> Path:
@@ -77,25 +81,21 @@ class Paths:
 
 
 def paths() -> Paths:
-    """The paths from `TXTURES_VALIDATION_WORK`, `TXTURES_MODELBLOCKS`, and `corpora.ptb3`."""
-    from txtures import api
-
-    missing = [
-        name
-        for name in ("TXTURES_VALIDATION_WORK", "TXTURES_MODELBLOCKS")
-        if not os.environ.get(name)
-    ]
+    """The paths from `PRSR_VALIDATION_WORK`, `PRSR_MODELBLOCKS`, and `PRSR_PTB3`."""
+    missing = [name for name in ("PRSR_MODELBLOCKS", "PRSR_PTB3") if not os.environ.get(name)]
     if missing:
-        raise TxturesError(
-            f"set {' and '.join(missing)} (see `python -m txtures.validation --help`)"
+        raise ValidationError(
+            f"set {' and '.join(missing)} (see `python -m prsr.validation --help`)"
         )
-    ptb3 = api.settings()["corpora.ptb3"]
-    if ptb3 is None:
-        raise TxturesError("set corpora.ptb3 to a copy of the Penn Treebank 3")
-    work = Path(os.environ["TXTURES_VALIDATION_WORK"]).expanduser().absolute()
+    work = Path(os.environ.get("PRSR_VALIDATION_WORK") or "validation-work")
+    work = work.expanduser().absolute()
     for sub in ("gcg15", "berkeley", "modelblocks"):
         (work / sub).mkdir(parents=True, exist_ok=True)
-    return Paths(work, Path(os.environ["TXTURES_MODELBLOCKS"]).expanduser(), Path(ptb3))
+    return Paths(
+        work,
+        Path(os.environ["PRSR_MODELBLOCKS"]).expanduser(),
+        Path(os.environ["PRSR_PTB3"]).expanduser(),
+    )
 
 
 def run(command: str, cwd: Path | None = None) -> None:

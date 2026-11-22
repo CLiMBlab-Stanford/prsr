@@ -1,5 +1,9 @@
 # prsr
 
+[![Checks](https://github.com/CLiMBlab-Stanford/prsr/actions/workflows/checks.yml/badge.svg?branch=dev)](https://github.com/CLiMBlab-Stanford/prsr/actions/workflows/checks.yml)
+[![PyPI](https://img.shields.io/pypi/v/prsr)](https://pypi.org/project/prsr/)
+[![Documentation](https://readthedocs.org/projects/prsr/badge/?version=latest)](https://prsr.readthedocs.io/en/latest/)
+
 Latent-variable PCFG training and left-corner parsing in PyTorch, on CPU or
 GPU. prsr reimplements three ModelBlocks and Berkeley parser components:
 
@@ -40,3 +44,9 @@ may change in minor versions.
 `prsr.TRAIN_VERSION` and `prsr.PARSE_VERSION` change whenever the same input
 would give a different grammar, or a different exported model, parse, or
 surprisal. If you cache prsr's results, include them in the cache key.
+
+## Documentation
+
+- prsr: <https://prsr.readthedocs.io>
+- txtures, which uses prsr for its syntactic measures and runs the checks
+  against ModelBlocks and the Berkeley parser: <https://txtures.readthedocs.io>

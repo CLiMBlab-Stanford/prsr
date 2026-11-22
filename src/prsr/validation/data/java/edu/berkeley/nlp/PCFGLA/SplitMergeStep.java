@@ -1,6 +1,6 @@
 // From a saved Berkeley grammar, run the merge step exactly as GrammarTrainer does (merge
 // weights, deltas, pairs, doTheMerges, and the lexicon-only E-step), or a split with
-// randomness 0, and dump the results for checking the txtures trainer.
+// randomness 0, and dump the results for checking the prsr trainer.
 // Usage: SplitMergeStep merge|split TREES GRAMMAR.gr OUT
 package edu.berkeley.nlp.PCFGLA;
 

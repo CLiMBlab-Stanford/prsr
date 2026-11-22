@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
+
 from prsr.em import Corpus, Rules, index_trees
 from prsr.lexicon import Lexicon
 from prsr.trees import training_tree

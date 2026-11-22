@@ -1,7 +1,7 @@
 """Translate the restricted Perl of the ModelBlocks tree scripts into Python.
 
-This one-off translator wrote the first versions of `txtures/gcg/fixes.py`
-(from `make-trees-fixed.pl`) and `txtures/gcg/rules.py` (from
+This one-off translator wrote the first versions of `prsr/gcg/fixes.py`
+(from `make-trees-fixed.pl`) and `prsr/gcg/rules.py` (from
 `annotate-gcg15.pl`): it copies every substitution verbatim and turns the
 control flow into Python. It is kept to document how those files were made;
 they have been edited since, so do not regenerate them blindly. Run it as a

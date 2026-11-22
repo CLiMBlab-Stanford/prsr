@@ -8,8 +8,7 @@ from pathlib import Path
 
 from prsr.gcg import fail_tree, fixes, kill_unaries, rules
 from prsr.gcg.perl import PerlString
-
-from txtures.validation import Paths, run
+from prsr.validation import Paths, run
 
 STAGES = (("fixed", ".fixed.senttrees"), ("annotated", ".annotated"), ("final", ".gcg15.senttrees"))
 
@@ -40,7 +39,7 @@ def reference(paths: Paths, section: str) -> None:
 
 
 def stages(line: str) -> tuple[str, str, str]:
-    """txtures' output for one line after the fixes, the annotation, and the end."""
+    """prsr's output for one line after the fixes, the annotation, and the end."""
     text = PerlString(line + "\n", fixes.VARIABLES)
     fixes.fix(text)
     fixed = text.text
@@ -62,7 +61,7 @@ def _check(job):
 
 
 def compare(paths: Paths, section: str, processes: int = 8) -> int:
-    """Compare txtures with the reference stages of one section; print and return the mismatches."""
+    """Compare prsr with the reference stages of one section; print and return the mismatches."""
     base = paths.gcg15 / f"wsj{section}"
     source = Path(f"{base}.senttrees").read_text(encoding="utf-8").splitlines()
     references = [
@@ -77,7 +76,7 @@ def compare(paths: Paths, section: str, processes: int = 8) -> int:
                 if mismatches <= 3:
                     name, line, mine, theirs = found
                     print(
-                        f"{name} differs for {line[:120]}\n  txtures {mine[:200]}\n  ref     {theirs[:200]}"
+                        f"{name} differs for {line[:120]}\n  prsr    {mine[:200]}\n  ref     {theirs[:200]}"
                     )
     print(f"WSJ {section}: {len(source)} lines, {mismatches} mismatches")
     return mismatches

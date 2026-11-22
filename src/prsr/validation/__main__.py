@@ -1,4 +1,4 @@
-"""`python -m txtures.validation COMMAND`: benchmarks against ModelBlocks and the Berkeley parser."""
+"""`python -m prsr.validation COMMAND`: benchmarks against ModelBlocks and the Berkeley parser."""
 
 from __future__ import annotations
 
@@ -6,14 +6,13 @@ import argparse
 import os
 import sys
 
-from txtures.errors import TxturesError
-from txtures.validation import __doc__ as overview
-from txtures.validation import paths
+from prsr.validation import ValidationError, paths
+from prsr.validation import __doc__ as overview
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="python -m txtures.validation",
+        prog="python -m prsr.validation",
         description=overview,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -101,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     command(
         "parse",
-        "txtures' GPU parser on test sentences",
+        "prsr's GPU parser on test sentences",
         grammar_dump,
         ("sentences", {"help": "a .linetoks name"}),
         ("--beam", {"type": int, "default": 5000}),
@@ -111,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     command(
         "debug-beams",
-        "txtures' lexical entries and beams per word, in synproc_debug's format",
+        "prsr's lexical entries and beams per word, in synproc_debug's format",
         grammar_dump,
         ("sentences", {"help": "a .linetoks name"}),
         ("--beam", {"type": int, "default": 5000}),
@@ -119,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     command(
         "compare-verbose",
-        "txtures' lexical entries and beams against synproc_debug's",
+        "prsr's lexical entries and beams against synproc_debug's",
         grammar_dump,
         ("sentences", {"help": "a .linetoks name"}),
         ("--merge", {"choices": ["once", "synproc"], "default": "synproc"}),
@@ -128,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
         "score",
         "bracket F1 (ModelBlocks' evalb) and bits per word of a parse against gold trees",
         ("sentences", {"help": "a .linetoks name with a .gold file"}),
-        ("parse", {"help": "a synproc .tokdecs or txtures .json file in the work directory"}),
+        ("parse", {"help": "a synproc .tokdecs or prsr .json file in the work directory"}),
     )
     command(
         "compare-parse",
@@ -142,14 +141,14 @@ def main(argv: list[str] | None = None) -> int:
         where = paths()
         name = args.command
         if name.startswith("gcg15"):
-            from txtures.validation import gcg15
+            from prsr.validation import gcg15
 
             if name == "gcg15-reference":
                 gcg15.reference(where, args.section)
             else:
                 return 1 if gcg15.compare(where, args.section, args.processes) else 0
         elif name.startswith("berkeley") or name in ("compare-onestep", "compare-split-merge"):
-            from txtures.validation import berkeley
+            from prsr.validation import berkeley
 
             {
                 "berkeley-build": lambda: berkeley.build(where),
@@ -162,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
                 ),
             }[name]()
         elif name == "score":
-            from txtures.validation import scoring
+            from prsr.validation import scoring
 
             scoring.score(where, args.sentences, args.parse)
         elif name in (
@@ -173,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
             "debug-beams",
             "compare-verbose",
         ):
-            from txtures.validation import parsing
+            from prsr.validation import parsing
 
             if name == "sentences":
                 print(parsing.sentences(where, args.section, args.count))
@@ -196,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 parsing.compare(where, args.grammar, args.sentences, args.merge)
         else:
-            from txtures.validation import modelblocks
+            from prsr.validation import modelblocks
 
             {
                 "modelblocks-build": lambda: modelblocks.build(where),
@@ -219,8 +218,8 @@ def main(argv: list[str] | None = None) -> int:
                     where, args.grammar, args.sentences, args.parts
                 ),
             }[name]()
-    except TxturesError as error:
-        print(f"txtures.validation: error: {error}", file=sys.stderr)
+    except ValidationError as error:
+        print(f"prsr.validation: error: {error}", file=sys.stderr)
         return 1
     return 0
 

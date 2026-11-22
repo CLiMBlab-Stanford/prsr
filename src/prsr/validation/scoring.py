@@ -17,8 +17,7 @@ from pathlib import Path
 
 from prsr.evaluation import for_scoring, gold_for_scoring, tree_from_states, unlabeled
 from prsr.trees import Tree
-
-from txtures.validation import Paths, run
+from prsr.validation import Paths, run
 
 
 def _flat(words: list[str]) -> Tree:
@@ -75,8 +74,8 @@ def _evalb(paths: Paths, gold: Path, test: Path) -> dict[str, float]:
 def score(paths: Paths, name: str, parse: str) -> dict:
     """Score a parse of `NAME.linetoks` against `NAME.gold`.
 
-    `parse` is a synproc `.tokdecs` file or a txtures `.json` file (from
-    `python -m txtures.validation parse`) in the ModelBlocks work directory.
+    `parse` is a synproc `.tokdecs` file or a prsr `.json` file (from
+    `python -m prsr.validation parse`) in the ModelBlocks work directory.
     """
     gold_lines = (paths.mb / f"{name}.gold").read_text(encoding="utf-8").splitlines()
     sentences = [

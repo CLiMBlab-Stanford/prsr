@@ -1,5 +1,5 @@
 // Load a saved Berkeley grammar, run one EM iteration exactly as GrammarTrainer's loop does,
-// and dump the grammar and lexicon state before and after, for checking the txtures trainer.
+// and dump the grammar and lexicon state before and after, for checking the prsr trainer.
 // Usage: OneStep TREES GRAMMAR.gr BEFORE.txt AFTER.txt
 package edu.berkeley.nlp.PCFGLA;
 

@@ -5,14 +5,15 @@ from __future__ import annotations
 import json
 import math
 import time
+from pathlib import Path
 
 import torch
+
 from prsr import leftcorner as lc
 from prsr.gcg import ptb_lines
 from prsr.parser import Parser
 from prsr.trees import parse as parse_tree
-
-from txtures.validation import Paths
+from prsr.validation import Paths
 
 
 def sentences(paths: Paths, section: str, count: int) -> str:
@@ -61,22 +62,21 @@ def gold_sentences(paths: Paths, section: str, count: int) -> str:
     return name
 
 
+def _label(grammar: str) -> str:
+    """The part of output file names that names the grammar: a dump's name or a directory's."""
+    return Path(grammar).expanduser().name
+
+
 def load_grammar(paths: Paths, grammar: str) -> lc.Pcfg:
-    """A grammar as a `Pcfg`: a Berkeley text dump in the Berkeley work directory, or
-    `lvpcfg:IDENTITY` (a prefix is enough) for an `lvpcfg_grammar` that txtures trained."""
-    if not grammar.startswith("lvpcfg:"):
-        source = paths.berkeley / grammar
-        return lc.Pcfg.from_berkeley_text(open(f"{source}.grammar"), open(f"{source}.lexicon"))
-    from prsr import Grammar
+    """A grammar as a `Pcfg`: a Berkeley text dump in the Berkeley work directory, or a
+    directory written by `prsr.Grammar.save`, such as a txtures `lvpcfg_grammar` entry."""
+    directory = Path(grammar).expanduser()
+    if (directory / "grammar.json").is_file():
+        from prsr import Grammar
 
-    from txtures import api
-
-    prefix = grammar.split(":", 1)[1]
-    store = api.settings().resource_store / "lvpcfg_grammar"
-    found = [p for p in store.glob(f"{prefix[:2]}/{prefix}*") if (p / "manifest.json").exists()]
-    if len(found) != 1:
-        raise ValueError(f"{len(found)} lvpcfg_grammar entries match {prefix!r} in {store}")
-    return Grammar.load(found[0]).pcfg()
+        return Grammar.load(directory).pcfg()
+    source = paths.berkeley / grammar
+    return lc.Pcfg.from_berkeley_text(open(f"{source}.grammar"), open(f"{source}.lexicon"))
 
 
 def parse(
@@ -88,7 +88,7 @@ def parse(
     max_sentences: int = 32,
     device: str = "cuda",
 ) -> None:
-    """Parse a `.linetoks` file with txtures on the GPU, from a Berkeley dump, and time it.
+    """Parse a `.linetoks` file with prsr on the GPU, from a Berkeley dump, and time it.
 
     All sentences go through one continuously batched run with at most
     `max_sentences` active at a time; loading and compiling are timed apart.
@@ -130,7 +130,7 @@ def parse(
         for result in found
     ]
     suffix = "" if cuda else f".{device}"
-    out = paths.mb / f"{name}.{grammar.replace(':', '-')}.txtures-{merge}{suffix}.json"
+    out = paths.mb / f"{name}.{_label(grammar)}.prsr-{merge}{suffix}.json"
     out.write_text(json.dumps({"symbols": model.symbols, "sentences": results}), encoding="utf-8")
     print(f"wrote {out}")
 
@@ -151,9 +151,9 @@ def read_tokdecs(path, lengths: list[int]) -> list[list[tuple[str, str, float]]]
 
 
 def compare(paths: Paths, grammar: str, name: str, merge: str = "once") -> None:
-    """Per-word surprisal and preterminals of txtures and ModelBlocks on the same sentences."""
+    """Per-word surprisal and preterminals of prsr and ModelBlocks on the same sentences."""
     mine = json.loads(
-        (paths.mb / f"{name}.{grammar}.txtures-{merge}.json").read_text(encoding="utf-8")
+        (paths.mb / f"{name}.{_label(grammar)}.prsr-{merge}.json").read_text(encoding="utf-8")
     )["sentences"]
     theirs = read_tokdecs(
         paths.mb / f"{name}.{grammar.split('.')[0]}.tokdecs", [len(s["words"]) for s in mine]
@@ -178,7 +178,7 @@ def compare(paths: Paths, grammar: str, name: str, merge: str = "once") -> None:
 def debug_beams(
     paths: Paths, grammar: str, name: str, beam: int = 5000, merge: str = "synproc"
 ) -> None:
-    """Write txtures' lexical entries and full beams per word in synproc_debug's format.
+    """Write prsr's lexical entries and full beams per word in synproc_debug's format.
 
     For each word: `WORD:w`, its `LEX tag prob` lines, then `BEAM (w)` with one
     `logprob tag f j A/B;A/B` line per entry, best first.
@@ -220,7 +220,7 @@ def debug_beams(
                 lines.append(
                     f"{float(beams.score[i])!r} {sym[int(beams.pretrm[i])]} {int(beams.fork[i])} {int(beams.join[i])} {store}"
                 )
-    out = paths.mb / f"{name}.{grammar}.txtures-{merge}.verbose"
+    out = paths.mb / f"{name}.{_label(grammar)}.prsr-{merge}.verbose"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote {out}")
 
@@ -254,9 +254,9 @@ def read_verbose(path) -> list[dict]:
 
 
 def compare_verbose(paths: Paths, grammar: str, name: str, merge: str = "synproc") -> None:
-    """Lexical entries and beams of txtures against synproc_debug's, word by word."""
+    """Lexical entries and beams of prsr against synproc_debug's, word by word."""
     theirs = read_verbose(paths.mb / f"{name}.{grammar.split('.')[0]}.verbose")
-    mine = read_verbose(paths.mb / f"{name}.{grammar}.txtures-{merge}.verbose")
+    mine = read_verbose(paths.mb / f"{name}.{_label(grammar)}.prsr-{merge}.verbose")
     for a, b in zip(mine, theirs, strict=True):
         assert a["word"] == b["word"]
         lex_tags = set(a["lex"]) ^ set(b["lex"])

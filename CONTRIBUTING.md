@@ -95,6 +95,15 @@ as brute-force marginalization on a small grammar. The Penn Treebank and data
 derived from it are licensed: never add them to the repository, tests, or
 distributions.
 
+## Validating against the references
+
+`python -m prsr.validation` reruns the checks against ModelBlocks and the
+Berkeley parser on full treebanks (see `docs/validation.md`). Rerun the
+relevant check after changing the trainer, compilation, parser, or gcg15
+rules, and state its result in the pull request. Its results are derived
+from the licensed Penn Treebank: keep them in `validation-work/` or another
+private directory, never in the repository.
+
 ## Releases and compatibility
 
 `dev` is the development branch and `main` contains released code. Prepare
@@ -109,11 +118,14 @@ intentional incompatibilities and migration steps in the pull request.
 
 After the merge, tag the release as an annotated `vMAJOR.MINOR.PATCH` tag on
 `main` and push the tag. Do not move or replace an existing release. The tag
-workflow checks that the tag matches the package version, builds the source
-distribution and wheel, and publishes them to PyPI through trusted publishing
-(the `pypi` environment; no token is stored).
+workflow (`publish-pypi.yml`) checks that the tag is annotated, matches the
+package version, and names a commit on `main`; builds the source
+distribution and wheel; publishes them to PyPI through trusted publishing
+(the `pypi` environment; no token is stored); and creates the GitHub Release
+with generated notes. Read the Docs builds the documentation from `main` and
+`dev` on its own.
 
-Then create the GitHub Release for the tag. It must begin with a concise,
+Then edit the GitHub Release so that it begins with a concise,
 human-written summary of the important changes. Generated notes may follow
 the summary, but they do not replace it. Publication is complete only after
 you have verified both the workflow and the release description.

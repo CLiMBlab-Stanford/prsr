@@ -1,4 +1,7 @@
-name: Publish to PyPI
+name: Publish release
+
+# PyPI's trusted publisher for prsr names this file (publish-pypi.yml) and the
+# pypi environment; keep both if this workflow is edited.
 
 on:
   push:
@@ -10,27 +13,37 @@ permissions:
 
 jobs:
   build:
-    name: Build distributions
+    name: Validate the tag and build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - name: Check out the tagged source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Fetch release references
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git fetch --force origin \
+            "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+      - name: Validate the release tag
+        run: python3 .github/workflows/check_release_tag.py "$GITHUB_REF_NAME"
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - name: Check that the tag matches the package version
+      - name: Build the source distribution and wheel
         run: |
-          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME does not match version $version"; exit 1; }
-      - run: python -m pip install build
-      - run: python -m build
-      - uses: actions/upload-artifact@v7
+          python -m pip install build
+          python -m build
+      - name: Keep the distributions for the publishing jobs
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
+          if-no-files-found: error
 
-  publish:
-    name: Publish with trusted publishing
+  pypi:
+    name: Publish to PyPI
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -40,8 +53,38 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v8
+      - name: Fetch the distributions
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: Create the GitHub Release
+    needs: pypi
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Fetch the distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - name: Create the release with the distributions attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "GitHub Release $GITHUB_REF_NAME already exists"
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --verify-tag \
+              --title "prsr ${GITHUB_REF_NAME#v}" \
+              --generate-notes \
+              --latest
+          fi

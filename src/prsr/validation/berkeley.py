@@ -6,10 +6,10 @@ import shutil
 import time
 
 import numpy as np
+
 from prsr import splitmerge as sm
 from prsr.em import iterate
-
-from txtures.validation import BERKELEY_COMMIT, BERKELEY_REPOSITORY, DATA, Paths, dumps, run
+from prsr.validation import BERKELEY_COMMIT, BERKELEY_REPOSITORY, DATA, Paths, dumps, run
 
 TRAINING_SECTIONS = [f"{n:02d}" for n in range(2, 22)]
 INPUT = "wsj02to21.gcg15.nol.prtrm"
@@ -77,7 +77,7 @@ def dump(paths: Paths, mode: str, grammar: str) -> None:
 
 
 def compare_onestep(paths: Paths, grammar: str) -> float:
-    """txtures' EM iteration from a dumped grammar, against the Java iteration's result."""
+    """prsr's EM iteration from a dumped grammar, against the Java iteration's result."""
     out = paths.berkeley / "dumps"
     before = dumps.load(out / f"{grammar}.before")
     corpus = dumps.training_corpus(paths.berkeley / f"{INPUT}.senttrees", before.categories)
@@ -85,7 +85,7 @@ def compare_onestep(paths: Paths, grammar: str) -> float:
     ll, g, lex = iterate(corpus, before.grammar(), before.lexicon())
     print(f"iteration {time.time() - start:.1f}s")
     after = dumps.load(out / f"{grammar}.after")
-    print(f"log-likelihood txtures {ll!r} java {after.log_likelihood!r}")
+    print(f"log-likelihood prsr {ll!r} java {after.log_likelihood!r}")
     worst = abs(ll - after.log_likelihood) / abs(after.log_likelihood)
     trained = {k for k in g.unary}
     worst = max(
@@ -111,7 +111,7 @@ def compare_onestep(paths: Paths, grammar: str) -> float:
 
 
 def compare_split_merge(paths: Paths, mode: str, grammar: str) -> None:
-    """txtures' split (randomness 0) or merge from a dumped grammar, against the harness's."""
+    """prsr's split (randomness 0) or merge from a dumped grammar, against the harness's."""
     out = paths.berkeley / "dumps"
     before = dumps.load(out / f"{grammar}.before")
     after = dumps.load(out / f"{grammar}.{mode}", out / f"{grammar}.{mode}.extra")
@@ -144,7 +144,7 @@ def compare_split_merge(paths: Paths, mode: str, grammar: str) -> None:
     dumps.compare(g.unary, {k: v for k, v in after.unary.items() if k in g.unary}, "merged unary")
     print("split trees equal:", trees == after.split_trees)
     ll, _, lex = iterate(corpus, g, lex, lexicon_only=True)
-    print(f"lexicon pass log-likelihood txtures {ll!r} java {after.log_likelihood!r}")
+    print(f"lexicon pass log-likelihood prsr {ll!r} java {after.log_likelihood!r}")
     dumps.compare(
         dumps.flat(lex.word_tag), dumps.flat(after.counts["L"]), "retrained word-tag counts"
     )

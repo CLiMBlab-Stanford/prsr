@@ -6,9 +6,9 @@ import time
 from collections import defaultdict
 
 import torch
-from prsr import leftcorner as lc
 
-from txtures.validation import DATA, Paths, dumps, run
+from prsr import leftcorner as lc
+from prsr.validation import DATA, Paths, dumps, run
 
 PROGRAMS = {
     "ccmodel2synproccptmodel": "resource-incrsem/src/ccmodel2synproccptmodel.cpp",
@@ -23,7 +23,7 @@ def build(paths: Paths) -> None:
     `Delimited<double>` and `Double`, because `stod` throws on the subnormal
     probabilities `ccu2cc.py` can write; and armadillo, which `Delimited.hpp`
     includes only for vector types these programs do not use, is replaced
-    by a stub (`txtures/validation/data/stub/armadillo`).
+    by a stub (`prsr/validation/data/stub/armadillo`).
     """
     mb, out = paths.modelblocks, paths.mb
     patched = out / "patched"
@@ -147,7 +147,7 @@ def compare_folding(paths: Paths, grammar: str) -> None:
 
 
 def compare_compiled(paths: Paths, grammar: str) -> None:
-    """Every F, P, W, J, A, and B entry of ModelBlocks' `.synprocmodel`, from txtures' factors."""
+    """Every F, P, W, J, A, and B entry of ModelBlocks' `.synprocmodel`, from prsr's factors."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     source = paths.berkeley / grammar
     start = time.time()
@@ -221,13 +221,13 @@ def compare_compiled(paths: Paths, grammar: str) -> None:
             note(kind, None, value)
     for kind, (count, worst, missing) in sorted(stats.items()):
         print(
-            f"{kind}: {count} entries, max relative difference {worst:.2e}, missing in txtures {missing}"
+            f"{kind}: {count} entries, max relative difference {worst:.2e}, missing in prsr {missing}"
         )
 
 
 def compare_export(paths: Paths, grammar: str) -> None:
     """`leftcorner.pcfg_from_trained` on a dumped Java grammar, against Berkeley's own text dump."""
-    from txtures.validation.berkeley import INPUT
+    from prsr.validation.berkeley import INPUT
 
     state = dumps.load(paths.berkeley / "dumps" / f"{grammar}.gr.before")
     corpus = dumps.training_corpus(paths.berkeley / f"{INPUT}.senttrees", state.categories)

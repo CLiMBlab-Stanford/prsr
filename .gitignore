@@ -41,3 +41,7 @@ __pycache__/
 *.swp
 *~
 .DS_Store
+
+# Validation results (python -m prsr.validation); derived from the licensed
+# Penn Treebank, so never committed
+/validation-work/
