@@ -97,9 +97,11 @@ distributions.
 
 ## Releases and compatibility
 
-`main` contains released code. Prepare changes on a branch and merge them into
-`main` through a reviewed pull request that advances the version in
-`pyproject.toml`.
+`dev` is the development branch and `main` contains released code. Prepare
+changes on `dev` or on a branch merged into `dev`. Release by merging `dev`
+into `main` through a pull request that advances the version in
+`pyproject.toml`. Pull requests into `main` must pass the format, lint, and
+test checks, the package build, and the version check.
 
 Use patch releases for compatible fixes. During the 0.x series, use minor
 releases for new features and intentional interface changes. Document
